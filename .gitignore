@@ -30,3 +30,25 @@
 *.exe
 *.out
 *.app
+
+# Visual Studio Files
+.vs/
+.vscode/
+.idea/
+*.vcxproj*
+*.sln
+
+# Windows Installer Files
+Thumbs.db
+ehthumbs.db
+
+# Build directories (these may vary based on your setup)
+bin/
+obj/
+Debug/
+Release/
+
+# PostgreSQL config or credentials files (if they exist)
+*.env
+*.pgsql
+
