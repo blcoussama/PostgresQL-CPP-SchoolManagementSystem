@@ -162,16 +162,12 @@ class Classe {
 private:
     int Classe_id;
     string Nom;
-    vector<Enseignant> Enseignants;
 
 public:
     Classe(int id, const string& nom) : Classe_id(id), Nom(nom) {}
 
     void Affichage() const {
         cout << "ID Classe : " << Classe_id << ", Nom : " << Nom << endl;
-        for (const auto& enseignant : Enseignants) {
-            enseignant.Affichage();
-        }
     }
 
     int GetClasseId() const {
@@ -184,18 +180,17 @@ class Etudiant : public Utilisateur {
 private:
     Date Date_Naissance;
     Parent Parent_Etudiant;
-    Classe Classe_Etudiant;
 
 public:
-    Etudiant(int id, const string& nom, const string& email, const string& mdp, const Date& dateNaissance, const Parent& parent, const Classe& classe)
-        : Utilisateur(id, nom, email, mdp), Date_Naissance(dateNaissance), Parent_Etudiant(parent), Classe_Etudiant(classe) {
+    Etudiant(int id, const string& nom, const string& email, const string& mdp, const Date& dateNaissance, const Parent& parent)
+        : Utilisateur(id, nom, email, mdp), Date_Naissance(dateNaissance), Parent_Etudiant(parent) {
     }
 
     void Affichage() const override {
         cout << "ID Etudiant : " << GetUtilisateurId() << ", Nom : " << Nom << ", Email : " << Email << endl;
         cout << "Date de naissance : " << Date_Naissance.jour << "/" << Date_Naissance.mois << "/" << Date_Naissance.annee << endl;
+
         Parent_Etudiant.Affichage();
-        Classe_Etudiant.Affichage();
     }
 };
 
@@ -217,6 +212,7 @@ public:
         cout << "Titre : " << Titre << endl;
         cout << "Description : " << Description << endl;
         cout << "Date de l'examen : " << Date_examen.jour << "/" << Date_examen.mois << "/" << Date_examen.annee << endl;
+
         for (const auto& classe : Classes) {
             classe.Affichage();
         }
@@ -260,38 +256,9 @@ public:
         cout << "ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << ", Mot de passe: " << GetMdp() << endl;
     }
 
-    // CREER UNE NOUVELLE MATIERE
-    Matiere Creer_Matiere(const string& Nom) {
-        string query = "INSERT INTO matieres (nom) VALUES ('" + Nom + "') RETURNING matiere_id;";
-        PGresult* res = DB.executeQuery(query);
-
-        // recuperer le ID genere par PostgresQL pour la nouvelle matiere
-        int matiere_id = atoi(PQgetvalue(res, 0, 0));
-        PQclear(res);
-
-        // retourner la matiere cree
-        return Matiere(matiere_id, Nom);
-    }
-
-    //CREER UNE NOUVEAU ENSEIGNANT
-    Enseignant Creer_Enseignant(const string& Nom, const string& Email, const string& Mdp, const Matiere& matiere) {
-        string query = "INSERT INTO enseignants (nom, email, mdp, matiere_id) VALUES ('" 
-                            + Nom + "', '" 
-                            + Email + "', '"
-                            + Mdp + "', '"
-                            + to_string(matiere.GetMatiereId()) + 
-                       ") RETURNING enseignant_id;";
-
-        PGresult* res = DB.executeQuery(query);
-        int enseignant_id = atoi(PQgetvalue(res, 0, 0));
-        PQclear(res);
-
-        return Enseignant(enseignant_id, Nom, Email, Mdp, matiere);
-    }
-
     // CREER UNE NOUVELLE CLASSE
-    Classe Creer_Classe(const string& Nom, Enseignant& enseignant ) {
-        string query = "INSERT INTO classes (nom, enseignant_id) VALUES ('" + Nom + "') RETURNING classe_id;";
+    Classe Creer_Classe(const string& Nom) {
+        string query = "INSERT INTO classes (nom) VALUES ('" + Nom + "') RETURNING classe_id;";
         PGresult* res = DB.executeQuery(query);
 
         int classe_id = atoi(PQgetvalue(res, 0, 0));
@@ -300,49 +267,153 @@ public:
         return Classe(classe_id, Nom);
     }
 
+    // CREER UNE NOUVELLE MATIERE
+    Matiere Creer_Matiere(const string& Nom) {
+        string query = "INSERT INTO matieres (nom) VALUES ('" + Nom + "') RETURNING matiere_id;";
+        PGresult* res = DB.executeQuery(query);
+
+        int matiere_id = atoi(PQgetvalue(res, 0, 0));
+        PQclear(res);
+
+        return Matiere(matiere_id, Nom);
+    }
+
+    // CREER UN PARENT
+    Parent Creer_Parent(const string& Nom, const string& Email, const string& Mdp) {
+        string query = "INSERT INTO parents (nom, email, mdp) VALUES ('" + Nom + "', '" + Email + "', '" + Mdp + "') RETURNING parent_id;";
+        PGresult* res = DB.executeQuery(query);
+
+        int parent_id = atoi(PQgetvalue(res, 0, 0));
+        PQclear(res);
+
+        return Parent(parent_id, Nom, Email, Mdp);
+    }
+
+
     // CREER UN NOUVEAU ETUDIANT
-    Etudiant Creer_Etudiant(const string& Nom, const string& Email, const string& Mdp, const Classe& classe, const Parent& parent, const Date& DateNaissance) {
-        // Convertir la date en un format SQL-compatible
+    Etudiant Creer_Etudiant(const string& Nom, const string& Email, const string& Mdp, const Date& DateNaissance) {
         string dateNaissanceStr = to_string(DateNaissance.annee) + "-" +
             (DateNaissance.mois < 10 ? "0" : "") + to_string(DateNaissance.mois) + "-" +
             (DateNaissance.jour < 10 ? "0" : "") + to_string(DateNaissance.jour);
 
-        string query = "INSERT INTO etudiants (nom, email, mdp, classe_id, parent_id, date_naissance) VALUES ('"
-            + Nom + "', '"
-            + Email + "', '"
-            + Mdp + "', '"
-            + to_string(classe.GetClasseId()) + ", "
-            + to_string(parent.GetParentId()) + ", "
-            + dateNaissanceStr +
-            ") RETURNING etudiant_id;";
+        string query = "INSERT INTO etudiants (nom, email, mdp, date_naissance) VALUES ('"
+            + Nom + "', '" + Email + "', '" + Mdp + "', '" + dateNaissanceStr + "') RETURNING etudiant_id;";
 
-        PGresult* res = DB.executeQuery(query);
+        PGresult* res = DB.executeQuery(query); 
+
         int etudiant_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
 
-        return Etudiant(etudiant_id, Nom, Email, Mdp, DateNaissance, parent, classe);
+        return Etudiant(etudiant_id, Nom, Email, Mdp, DateNaissance, Parent(0, "", "", ""));
+    }
+    // ASSIGNER UN PARENT A UN ETUDIANT
+    void Assigner_Parent_a_Etudiant(int etudiant_id, int parent_id) {
+        string query = "UPDATE etudiants SET parent_id = " + to_string(parent_id) + " WHERE etudiant_id = " + to_string(etudiant_id) + ";";
+        PGresult* res = DB.executeQuery(query);
+        if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+            cout << "Parent assigne avec succes a l'etudiant." << endl;
+        }
+        else {
+            cerr << "Erreur lors de l'assignation du parent a l'etudiant." << endl;
+        }
+        PQclear(res);
     }
 
-    // ASSIGNER UN ENSEIGNANT A UNE CLASSE
-    void Assigner_Enseignant_a_Classe(int ID, Enseignant& enseignant) {
-        // mettre à jour l'enseignant dans la classe
-        string query = "UPDATE classes SET enseignant_id = " + to_string(enseignant.GetUtilisateurId()) +
-            " WHERE classe_id = " + to_string(ID) + ";";
-        // Exécuter la requête
+    // ASSIGNER UNE CLASSE A UN ETUDIANT
+    void Assigner_Etudiant_a_Classe(int etudiant_id, int classe_id) {
+
+        // Vérifier si l'étudiant est déjà dans cette classe
+        string checkQuery = "SELECT * FROM etudiants_classes WHERE etudiant_id = "
+            + to_string(etudiant_id) + " AND classe_id = " + to_string(classe_id) + ";";
+
+        PGresult* checkRes = DB.executeQuery(checkQuery);
+
+        if (PQntuples(checkRes) > 0) {
+            cout << "L'étudiant est déjà assigné à cette classe." << endl;
+            PQclear(checkRes);
+            return;
+        }
+
+        PQclear(checkRes);
+
+        // Insérer l'étudiant dans la table de liaison avec la classe
+        string query = "INSERT INTO etudiants_classes (etudiant_id, classe_id) VALUES ("
+            + to_string(etudiant_id) + ", " + to_string(classe_id) + ");";
+
+        PGresult* res = DB.executeQuery(query);
+
+        if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+            cout << "L'étudiant a été assigné à la classe avec succès." << endl;
+        }
+        else {
+            cerr << "Erreur lors de l'assignation de l'étudiant à la classe." << endl;
+        }
+
+        PQclear(res);
+    }
+
+    //CREER UNE NOUVEAU ENSEIGNANT
+    Enseignant Creer_Enseignant(const string& Nom, const string& Email, const string& Mdp, const Matiere& matiere) {
+        string query = "INSERT INTO enseignants (nom, email, mdp, matiere_id) VALUES ('"
+            + Nom + "', '" + Email + "', '" + Mdp + "', " + to_string(matiere.GetMatiereId()) + ") RETURNING enseignant_id;";
+
+        PGresult* res = DB.executeQuery(query);
+
+        int enseignant_id = atoi(PQgetvalue(res, 0, 0));
+        PQclear(res);
+
+        return Enseignant(enseignant_id, Nom, Email, Mdp, matiere);
+    }
+
+
+    // ASSIGNER UNE MATIERE A UN ENSEIGNANT
+    void Assigner_Matiere_a_Enseignant(int ID, const Matiere& matiere) {
+        string query = "UPDATE enseignants SET matiere_id = " + to_string(matiere.GetMatiereId()) +
+            " WHERE enseignant_id = " + to_string(ID) + ";";
         PGresult* res = DB.executeQuery(query);
 
         // Vérification du succès de l'opération
         if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-            cout << "Enseignant assigne avec succes a la classe." << endl;
+            cout << "Matiere assigne avec succes a l' enseignant." << endl;
         }
         else {
-            cerr << "Erreur lors de l'assignation de l'enseignant a la classe : " << PQerrorMessage(DB.getConnection()) << endl;
+            cerr << "Erreur lors de l'assignation de la matiere a l'enseignant : " << PQerrorMessage(DB.getConnection()) << endl;
         }
 
         PQclear(res);
     }
 
+    // ASSIGNER UN ENSEIGNANT A UNE CLASSE  
+    void Assigner_Enseigant_a_Classe(int enseignant_id, int classe_id) {
 
+        // Vérifier si l'enseignant est déjà dans cette classe
+        string checkQuery = "SELECT * FROM enseignants_classes WHERE etudiant_id = "
+            + to_string(enseignant_id) + " AND classe_id = " + to_string(classe_id) + ";";
+
+        PGresult* checkRes = DB.executeQuery(checkQuery);
+
+        if (PQntuples(checkRes) > 0) {
+            cout << "L'enseignant est déjà assigné à cette classe." << endl;
+            PQclear(checkRes);
+            return;
+        }
+
+        PQclear(checkRes);
+
+        // Insérer l'étudiant dans la table de liaison avec la classe
+        string query = "INSERT INTO enseignant_classes (enseignant_id, classe_id) VALUES ("
+            + to_string(enseignant_id) + ", " + to_string(classe_id) + ");";
+
+        PGresult* res = DB.executeQuery(query);
+
+        if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+            cout << "L'enseignant a été assigné à la classe avec succès." << endl;
+        }
+        else {
+            cerr << "Erreur lors de l'assignation de l'enseignant à la classe." << endl;
+        }
+        PQclear(res);
+    }
 };
 
 // Fonction main
