@@ -70,7 +70,13 @@ public:
     }
 };
 
-// Autres Classes
+// Structure de Date
+struct Date {
+    int jour, mois, annee;
+};
+
+
+// CLASS MATIERE
 class Matiere {
 private:
     int Matiere_id;
@@ -84,6 +90,7 @@ public:
     }
 };
 
+// CLASS CLASSE
 class Classe {
 private:
     int Classe_id;
@@ -101,6 +108,31 @@ public:
     }
 };
 
+// CLASS EXAMEN
+class Examen {
+private:
+    int Examen_id;
+    string Titre, Description;
+    Date Date_examen;
+    vector<Classe> Classes;
+
+public:
+    Examen(int id, const string& titre, const string& description, const Date& date, const vector<Classe>& classes)
+        : Examen_id(id), Titre(titre), Description(description), Date_examen(date), Classes(classes) {
+    }
+
+    void Affichage() const {
+        cout << "ID Examen : " << Examen_id << endl;
+        cout << "Titre : " << Titre << endl;
+        cout << "Description : " << Description << endl;
+        cout << "Date de l'examen : " << Date_examen.jour << "/" << Date_examen.mois << "/" << Date_examen.annee << endl;
+        for (const auto& classe : Classes) {
+            classe.Affichage();
+        }
+    }
+};
+
+// CLASS UTILISATEUR
 class Utilisateur {
 private:
     int Utilisateur_id;
@@ -125,6 +157,19 @@ public:
     }
 };
 
+// CLASS ADMIN
+class Admin : public Utilisateur {
+public:
+    Admin(int id, const string& nom, const string& email, const string& mdp)
+        : Utilisateur(id, nom, email, mdp) {
+    }
+    void Affichage() const override {
+        cout << "Admin:" << endl;
+        cout << "ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << ", Mot de passe: " << GetMdp() << endl;
+    }
+};
+
+// CLASS PARENT
 class Parent : public Utilisateur {
 public:
     Parent(int id, const string& nom, const string& email, const string& mdp)
@@ -136,6 +181,7 @@ public:
     }
 };
 
+// CLASS ENSEIGNANT
 class Enseignant : public Utilisateur {
 private:
     Matiere Matiere_assignee;
@@ -151,10 +197,7 @@ public:
     }
 };
 
-struct Date {
-    int jour, mois, annee;
-};
-
+// CLASS ETUDIANT
 class Etudiant : public Utilisateur {
 private:
     Date Date_Naissance;
@@ -176,26 +219,24 @@ public:
     }
 };
 
-class Examen {
+// CLASS NOTE
+class Note {
 private:
-    int Examen_id;
-    string Titre, Description;
-    Date Date_examen;
-    vector<Classe> Classes;
+    int Note_id;
+    float Note_val;
+    Etudiant Etudiant_assignee;
+    Examen Examen_assignee;
 
 public:
-    Examen(int id, const string& titre, const string& description, const Date& date, const vector<Classe>& classes)
-        : Examen_id(id), Titre(titre), Description(description), Date_examen(date), Classes(classes) {
-    }
+    Note(int id, float note, const Etudiant& etudiant, const Examen& examen)
+        : Note_id(id), Note_val(note), Etudiant_assignee(etudiant), Examen_assignee(examen) {}
 
     void Affichage() const {
-        cout << "ID Examen : " << Examen_id << endl;
-        cout << "Titre : " << Titre << endl;
-        cout << "Description : " << Description << endl;
-        cout << "Date de l'examen : " << Date_examen.jour << "/" << Date_examen.mois << "/" << Date_examen.annee << endl;
-        for (const auto& classe : Classes) {
-            classe.Affichage();
-        }
+        cout << "ID Note: " << Note_id << ", Note: " << Note_val << endl;
+        cout << "Etudiant :" << endl;
+        Etudiant_assignee.Affichage();
+        cout << "Examen: " << endl;
+        Examen_assignee.Affichage();
     }
 };
 
@@ -211,16 +252,16 @@ int main() {
     cout << "Entrez l'email de l'admin : ";
     cin >> adminEmail;
     cout << "Entrez le mot de passe de l'admin : ";
-    cin >> adminMdp;*/
+    cin >> adminMdp;
 
-    //DB.Ajouter_Admin(adminNom, adminEmail, adminMdp);
+    DB.Ajouter_Admin(adminNom, adminEmail, adminMdp);*/
 
     // Supprimer un admin
-    int adminID;
+    /*int adminID;
     cout << "Entrez l'ID de l'admin à supprimer : ";
     cin >> adminID;
 
-    DB.Supprimer_Admin(adminID);
+    DB.Supprimer_Admin(adminID);*/
 
     return 0; // La connexion est automatiquement fermée lorsque l'objet Database est détruit
 }
