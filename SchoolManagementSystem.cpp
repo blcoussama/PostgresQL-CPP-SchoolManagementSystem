@@ -141,15 +141,21 @@ public:
 class Enseignant : public Utilisateur {
 private:
     Matiere Matiere_assignee;
+    vector<Classe> Classes;
 
 public:
-    Enseignant(int id, const string& nom, const string& email, const string& mdp, const Matiere& matiere)
-        : Utilisateur(id, nom, email, mdp), Matiere_assignee(matiere) {
+    Enseignant(int id, const string& nom, const string& email, const string& mdp, const Matiere& matiere, const vector<Classe>& classes)
+        : Utilisateur(id, nom, email, mdp), Matiere_assignee(matiere), Classes(classes) {
     }
 
     void Affichage() const override {
         cout << "ID Enseignant : " << GetUtilisateurId() << ", Nom : " << Nom << ", Email : " << Email << endl;
+
         Matiere_assignee.Affichage();
+
+        for (const auto& classe : Classes) {
+            classe.Affichage();
+        }
     }
 
     Matiere GetMatiere() const {
@@ -180,6 +186,7 @@ class Etudiant : public Utilisateur {
 private:
     Date Date_Naissance;
     Parent Parent_Etudiant;
+    vector<Classe> Classes;
 
 public:
     Etudiant(int id, const string& nom, const string& email, const string& mdp, const Date& dateNaissance, const Parent& parent)
@@ -201,10 +208,11 @@ private:
     string Titre, Description;
     Date Date_examen;
     vector<Classe> Classes;
+    vector<Matiere> Matieres;
 
 public:
-    Examen(int id, const string& titre, const string& description, const Date& date, const vector<Classe>& classes)
-        : Examen_id(id), Titre(titre), Description(description), Date_examen(date), Classes(classes) {
+    Examen(int id, const string& titre, const string& description, const Date& date, const vector<Classe>& classes, const vector<Matiere> matieres)
+        : Examen_id(id), Titre(titre), Description(description), Date_examen(date), Classes(classes), Matieres(matieres) {
     }
 
     void Affichage() const {
@@ -215,6 +223,10 @@ public:
 
         for (const auto& classe : Classes) {
             classe.Affichage();
+        }
+
+        for (const auto& matiere : Matieres) {
+            matiere.Affichage();
         }
     }
 };
@@ -353,31 +365,31 @@ public:
     }
 
     //CREER UNE NOUVEAU ENSEIGNANT
-    Enseignant Creer_Enseignant(const string& Nom, const string& Email, const string& Mdp, const Matiere& matiere) {
-        string query = "INSERT INTO enseignants (nom, email, mdp, matiere_id) VALUES ('"
-            + Nom + "', '" + Email + "', '" + Mdp + "', " + to_string(matiere.GetMatiereId()) + ") RETURNING enseignant_id;";
+    Enseignant Creer_Enseignant(const string& Nom, const string& Email, const string& Mdp) {
+        string query = "INSERT INTO enseignants (nom, email, mdp) VALUES ('"
+            + Nom + "', '" + Email + "', '" + Mdp + "') RETURNING enseignant_id;";
 
         PGresult* res = DB.executeQuery(query);
 
         int enseignant_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
 
-        return Enseignant(enseignant_id, Nom, Email, Mdp, matiere);
+        return Enseignant(enseignant_id, Nom, Email, Mdp, Matiere(0, ""), vector<Classe>());
     }
 
 
     // ASSIGNER UNE MATIERE A UN ENSEIGNANT
-    void Assigner_Matiere_a_Enseignant(int ID, const Matiere& matiere) {
+    void Assigner_Matiere_a_Enseignant(int enseignant_id, const Matiere& matiere) {
         string query = "UPDATE enseignants SET matiere_id = " + to_string(matiere.GetMatiereId()) +
-            " WHERE enseignant_id = " + to_string(ID) + ";";
+            " WHERE enseignant_id = " + to_string(enseignant_id) + ";";
+
         PGresult* res = DB.executeQuery(query);
 
-        // Vérification du succès de l'opération
         if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-            cout << "Matiere assigne avec succes a l' enseignant." << endl;
+            cout << "La matière a été assignée avec succès à l'enseignant." << endl;
         }
         else {
-            cerr << "Erreur lors de l'assignation de la matiere a l'enseignant : " << PQerrorMessage(DB.getConnection()) << endl;
+            cerr << "Erreur lors de l'assignation de la matière : " << PQerrorMessage(DB.getConnection()) << endl;
         }
 
         PQclear(res);
@@ -387,7 +399,7 @@ public:
     void Assigner_Enseigant_a_Classe(int enseignant_id, int classe_id) {
 
         // Vérifier si l'enseignant est déjà dans cette classe
-        string checkQuery = "SELECT * FROM enseignants_classes WHERE etudiant_id = "
+        string checkQuery = "SELECT * FROM enseignants_classes WHERE enseignant_id = "
             + to_string(enseignant_id) + " AND classe_id = " + to_string(classe_id) + ";";
 
         PGresult* checkRes = DB.executeQuery(checkQuery);
