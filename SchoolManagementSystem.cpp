@@ -136,6 +136,24 @@ public:
     }
 };
 
+// CLASS CLASSE
+class Classe {
+private:
+    int Classe_id;
+    string Nom;
+
+public:
+    Classe(int id, const string& nom) : Classe_id(id), Nom(nom) {}
+
+    void Affichage() const {
+        cout << "ID Classe : " << Classe_id << ", Nom : " << Nom << endl;
+    }
+
+    int GetClasseId() const {
+        return Classe_id;
+    }
+};
+
 
 // CLASS ENSEIGNANT
 class Enseignant : public Utilisateur {
@@ -163,24 +181,6 @@ public:
     }
 };
 
-// CLASS CLASSE
-class Classe {
-private:
-    int Classe_id;
-    string Nom;
-
-public:
-    Classe(int id, const string& nom) : Classe_id(id), Nom(nom) {}
-
-    void Affichage() const {
-        cout << "ID Classe : " << Classe_id << ", Nom : " << Nom << endl;
-    }
-
-    int GetClasseId() const {
-        return Classe_id;
-    }
-};
-
 // CLASS ETUDIANT
 class Etudiant : public Utilisateur {
 private:
@@ -189,8 +189,8 @@ private:
     vector<Classe> Classes;
 
 public:
-    Etudiant(int id, const string& nom, const string& email, const string& mdp, const Date& dateNaissance, const Parent& parent)
-        : Utilisateur(id, nom, email, mdp), Date_Naissance(dateNaissance), Parent_Etudiant(parent) {
+    Etudiant(int id, const string& nom, const string& email, const string& mdp, const Date& dateNaissance, const Parent& parent, const vector<Classe>& classes)
+        : Utilisateur(id, nom, email, mdp), Date_Naissance(dateNaissance), Parent_Etudiant(parent), Classes(classes) {
     }
 
     void Affichage() const override {
@@ -198,6 +198,10 @@ public:
         cout << "Date de naissance : " << Date_Naissance.jour << "/" << Date_Naissance.mois << "/" << Date_Naissance.annee << endl;
 
         Parent_Etudiant.Affichage();
+
+        for (const auto& classe : Classes) {
+            classe.Affichage();
+        }
     }
 };
 
@@ -316,7 +320,7 @@ public:
         int etudiant_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
 
-        return Etudiant(etudiant_id, Nom, Email, Mdp, DateNaissance, Parent(0, "", "", ""));
+        return Etudiant(etudiant_id, Nom, Email, Mdp, DateNaissance, Parent(0, "", "", ""), vector<Classe>());
     }
     // ASSIGNER UN PARENT A UN ETUDIANT
     void Assigner_Parent_a_Etudiant(int etudiant_id, int parent_id) {
