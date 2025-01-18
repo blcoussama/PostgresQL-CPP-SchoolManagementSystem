@@ -1,44 +1,39 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
-#include <libpq-fe.h>  // PostgreSQL library
-#include <cstdlib>     // For getenv()
+#include <libpq-fe.h>  // Bibliothèque PostgreSQL
+#include <cstdlib>     // Pour getenv()
 #include <string>
 #include <vector>
 
 using namespace std;
 
-//// Forward Declarations
-//class Matiere;
-//class Classe;
-//class Parent;
-
-// Database Class
+// Classe Base de Données
 class Database {
 private:
-    PGconn* conn; // Pointer for PostgreSQL connection
+    PGconn* conn; // Pointeur pour la connexion PostgreSQL
 
 public:
     Database() {
-        // Fetch environment variables
+        // Récupérer les variables d'environnement
         string dbName = getenv("PG_DB_NAME");
         string dbUser = getenv("PG_DB_USER");
         string dbPassword = getenv("PG_DB_PASSWORD");
         string dbHost = getenv("PG_DB_HOST");
 
-        // Connection string for PostgreSQL
+        // Chaîne de connexion pour PostgreSQL
         string connectionString = "dbname=" + dbName + " user=" + dbUser + " password=" + dbPassword + " hostaddr=" + dbHost + " port=5000";
         conn = PQconnectdb(connectionString.c_str());
 
         if (PQstatus(conn) == CONNECTION_BAD) {
-            cerr << "Connection to the database failed: " << PQerrorMessage(conn) << endl;
+            cerr << "Echec de la connexion a la base de donnees : " << PQerrorMessage(conn) << endl;
         }
         else {
-            cout << "Connected to the PostgreSQL database successfully." << endl;
+            cout << "Connexion a la base de donnees PostgreSQL reussie." << endl;
         }
     }
 
     ~Database() {
-        PQfinish(conn); // Close the connection when object is destroyed
+        PQfinish(conn); // Fermer la connexion lorsque l'objet est détruit
     }
 
     PGconn* getConnection() {
@@ -48,7 +43,7 @@ public:
     PGresult* executeQuery(const string& query) {
         PGresult* res = PQexec(conn, query.c_str());
         if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            cerr << "Query execution failed: " << PQerrorMessage(conn) << endl;
+            cerr << "Echec de l'execution de la requete : " << PQerrorMessage(conn) << endl;
         }
         return res;
     }
@@ -57,7 +52,7 @@ public:
         string query = "INSERT INTO admins (nom, email, mdp) VALUES ('" + Nom + "', '" + Email + "', '" + Mdp + "');";
         PGresult* res = executeQuery(query);
         if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-            cout << "Admin added successfully." << endl;
+            cout << "Admin ajoute avec succes." << endl;
         }
         PQclear(res);
     }
@@ -66,16 +61,16 @@ public:
         string query = "DELETE FROM admins WHERE admin_id = " + to_string(ID) + ";";
         PGresult* res = executeQuery(query);
         if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-            cout << "Admin deleted successfully." << endl;
+            cout << "Admin supprime avec succes." << endl;
         }
         else {
-            cerr << "Failed to delete admin: " << PQerrorMessage(conn) << endl;
+            cerr << "Echec de la suppression de l'admin : " << PQerrorMessage(conn) << endl;
         }
         PQclear(res);
     }
 };
 
-// Other Classes
+// Autres Classes
 class Matiere {
 private:
     int Matiere_id;
@@ -85,7 +80,7 @@ public:
     Matiere(int id, const string& nom) : Matiere_id(id), Nom(nom) {}
 
     void Affichage() const {
-        cout << "Matiere ID: " << Matiere_id << ", Nom: " << Nom << endl;
+        cout << "ID Matiere : " << Matiere_id << ", Nom : " << Nom << endl;
     }
 };
 
@@ -99,7 +94,7 @@ public:
     Classe(int id, const string& nom) : Classe_id(id), Nom(nom) {}
 
     void Affichage() const {
-        cout << "Classe ID: " << Classe_id << ", Nom: " << Nom << endl;
+        cout << "ID Classe : " << Classe_id << ", Nom : " << Nom << endl;
         for (const auto& matiere : Matieres) {
             matiere.Affichage();
         }
@@ -137,7 +132,7 @@ public:
     }
 
     void Affichage() const override {
-        cout << "Parent ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << endl;
+        cout << "ID Parent : " << GetUtilisateurId() << ", Nom : " << Nom << ", Email : " << Email << endl;
     }
 };
 
@@ -151,7 +146,7 @@ public:
     }
 
     void Affichage() const override {
-        cout << "Enseignant ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << endl;
+        cout << "ID Enseignant : " << GetUtilisateurId() << ", Nom : " << Nom << ", Email : " << Email << endl;
         Matiere_assignee.Affichage();
     }
 };
@@ -172,8 +167,8 @@ public:
     }
 
     void Affichage() const override {
-        cout << "Etudiant ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << endl;
-        cout << "Date de naissance: " << Date_Naissance.jour << "/" << Date_Naissance.mois << "/" << Date_Naissance.annee << endl;
+        cout << "ID Etudiant : " << GetUtilisateurId() << ", Nom : " << Nom << ", Email : " << Email << endl;
+        cout << "Date de naissance : " << Date_Naissance.jour << "/" << Date_Naissance.mois << "/" << Date_Naissance.annee << endl;
         Parent_Etudiant.Affichage();
         for (const auto& classe : Classes) {
             classe.Affichage();
@@ -194,38 +189,38 @@ public:
     }
 
     void Affichage() const {
-        cout << "Examen ID: " << Examen_id << endl;
-        cout << "Titre: " << Titre << endl;
-        cout << "Description: " << Description << endl;
-        cout << "Date de l'examen: " << Date_examen.jour << "/" << Date_examen.mois << "/" << Date_examen.annee << endl;
+        cout << "ID Examen : " << Examen_id << endl;
+        cout << "Titre : " << Titre << endl;
+        cout << "Description : " << Description << endl;
+        cout << "Date de l'examen : " << Date_examen.jour << "/" << Date_examen.mois << "/" << Date_examen.annee << endl;
         for (const auto& classe : Classes) {
             classe.Affichage();
         }
     }
 };
 
-// Main Function
+// Fonction principale
 int main() {
-    // Create a Database object to establish the connection automatically
+    // Créer un objet Database pour établir automatiquement la connexion
     Database DB;
 
-    // Adding an Admin
-    string adminNom, adminEmail, adminMdp;
-    cout << "Entrez le nom de l'admin: ";
+    // Ajouter un admin
+    /*string adminNom, adminEmail, adminMdp;
+    cout << "Entrez le nom de l'admin : ";
     cin >> adminNom;
-    cout << "Entrez l'email de l'admin: ";
+    cout << "Entrez l'email de l'admin : ";
     cin >> adminEmail;
-    cout << "Entrez le mot de passe de l'admin: ";
-    cin >> adminMdp;
+    cout << "Entrez le mot de passe de l'admin : ";
+    cin >> adminMdp;*/
 
-    DB.Ajouter_Admin(adminNom, adminEmail, adminMdp);
+    //DB.Ajouter_Admin(adminNom, adminEmail, adminMdp);
 
-    // Deleting an Admin
-    /*int adminID;
-    cout << "Entrez l'ID de l'admin à supprimer: ";
+    // Supprimer un admin
+    int adminID;
+    cout << "Entrez l'ID de l'admin à supprimer : ";
     cin >> adminID;
 
-    DB.Supprimer_Admin(adminID);*/
+    DB.Supprimer_Admin(adminID);
 
-    return 0; // Connection is automatically closed when the Database object is destroyed
+    return 0; // La connexion est automatiquement fermée lorsque l'objet Database est détruit
 }
