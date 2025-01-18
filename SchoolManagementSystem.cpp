@@ -1,75 +1,109 @@
-
 #define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
 #include <libpq-fe.h>  // PostgreSQL library
-#include <cstdlib>  // For getenv()
+#include <cstdlib>     // For getenv()
 #include <string>
 #include <vector>
 
 using namespace std;
 
+//// Forward Declarations
+//class Matiere;
+//class Classe;
+//class Parent;
+
+// Database Class
 class Database {
 private:
-    PGconn* conn; // Déclarer le pointeur pour la connexion avec PostgresQL.
+    PGconn* conn; // Pointer for PostgreSQL connection
 
 public:
-    // Constructeur pour établie la connexion avec la base de donnée.
     Database() {
-        // Importer les variables d'environements crées.
+        // Fetch environment variables
         string dbName = getenv("PG_DB_NAME");
         string dbUser = getenv("PG_DB_USER");
         string dbPassword = getenv("PG_DB_PASSWORD");
         string dbHost = getenv("PG_DB_HOST");
 
-        // String de Connection a la Base de données PostgresQL.
-        string connexionString = ("dbname=" + dbName + " user=" + dbUser + " password=" + dbPassword + " hostaddr=" + dbHost + " port=5000");
-
-        // Utiliser le connInfo String pour etablir la connexion.
-        conn = PQconnectdb(connexionString.c_str()); /* Utiliser "c_str()" pour convertir le string de connexion a un string de Style C,
-                                                        qui est requis par la fonction PQconnectdb de PostgresQL.*/
+        // Connection string for PostgreSQL
+        string connectionString = "dbname=" + dbName + " user=" + dbUser + " password=" + dbPassword + " hostaddr=" + dbHost + " port=5000";
+        conn = PQconnectdb(connectionString.c_str());
 
         if (PQstatus(conn) == CONNECTION_BAD) {
-            cerr << "La Connexion a la Base de donnee a echoue!" << endl;
+            cerr << "Connection to the database failed: " << PQerrorMessage(conn) << endl;
         }
         else {
-            cout << "La Base de Donnee PostgresQL a ete Connectee avec Success." << endl;
+            cout << "Connected to the PostgreSQL database successfully." << endl;
         }
     }
 
-    // Destructeur pour arreter la connexion avec la base de donnée.
     ~Database() {
-        PQfinish(conn); // Arreter la connexion quand l'objet est détruit.
+        PQfinish(conn); // Close the connection when object is destroyed
     }
 
-    // Getter pour accéder au pointeur de connexion.
-    PGconn* getConnexion() {
+    PGconn* getConnection() {
         return conn;
     }
 
-    // Méthode pour exécuter une requête SQL générique.
     PGresult* executeQuery(const string& query) {
-        PGconn* conn = getConnexion();
         PGresult* res = PQexec(conn, query.c_str());
         if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            cerr << "Échec de l'exécution de la requête : " << PQerrorMessage(conn) << endl;
+            cerr << "Query execution failed: " << PQerrorMessage(conn) << endl;
         }
         return res;
-
     }
 
-    // Method Pour ajouter les admins dans la base des donnees
     void Ajouter_Admin(const string& Nom, const string& Email, const string& Mdp) {
         string query = "INSERT INTO admins (nom, email, mdp) VALUES ('" + Nom + "', '" + Email + "', '" + Mdp + "');";
-        executeQuery(query);
-        cout << "Admin Ajoute avec Success." << endl;
+        PGresult* res = executeQuery(query);
+        if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+            cout << "Admin added successfully." << endl;
+        }
+        PQclear(res);
     }
 
+    void Supprimer_Admin(int ID) {
+        string query = "DELETE FROM admins WHERE admin_id = " + to_string(ID) + ";";
+        PGresult* res = executeQuery(query);
+        if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+            cout << "Admin deleted successfully." << endl;
+        }
+        else {
+            cerr << "Failed to delete admin: " << PQerrorMessage(conn) << endl;
+        }
+        PQclear(res);
+    }
 };
 
-struct Date {
-    int jour;
-    int mois;
-    int annee;
+// Other Classes
+class Matiere {
+private:
+    int Matiere_id;
+    string Nom;
+
+public:
+    Matiere(int id, const string& nom) : Matiere_id(id), Nom(nom) {}
+
+    void Affichage() const {
+        cout << "Matiere ID: " << Matiere_id << ", Nom: " << Nom << endl;
+    }
+};
+
+class Classe {
+private:
+    int Classe_id;
+    string Nom;
+    vector<Matiere> Matieres;
+
+public:
+    Classe(int id, const string& nom) : Classe_id(id), Nom(nom) {}
+
+    void Affichage() const {
+        cout << "Classe ID: " << Classe_id << ", Nom: " << Nom << endl;
+        for (const auto& matiere : Matieres) {
+            matiere.Affichage();
+        }
+    }
 };
 
 class Utilisateur {
@@ -80,13 +114,13 @@ private:
 protected:
     string Nom, Email;
 
-public: 
-    Utilisateur(int id, const string& nom, const string& email, const string& mdp) 
-        : Utilisateur_id(id), Nom(nom), Email(email), Mdp(mdp) {}
+public:
+    Utilisateur(int id, const string& nom, const string& email, const string& mdp)
+        : Utilisateur_id(id), Nom(nom), Email(email), Mdp(mdp) {
+    }
 
-    virtual void Affichage() const = 0; // Méthode virtuelle pure
+    virtual void Affichage() const = 0;
 
-    
     int GetUtilisateurId() const {
         return Utilisateur_id;
     }
@@ -96,150 +130,102 @@ public:
     }
 };
 
-class Admin : public Utilisateur {
-
+class Parent : public Utilisateur {
 public:
-    Admin(int id, const string& nom, const string& email, const string& mdp)
-        : Utilisateur(id, nom, email, mdp) {}
+    Parent(int id, const string& nom, const string& email, const string& mdp)
+        : Utilisateur(id, nom, email, mdp) {
+    }
 
     void Affichage() const override {
-        cout << "Admin:" << endl;
-        cout << "ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << ", Mot de passe: " << GetMdp() << endl;
+        cout << "Parent ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << endl;
     }
 };
 
 class Enseignant : public Utilisateur {
-
-protected:
+private:
     Matiere Matiere_assignee;
 
 public:
     Enseignant(int id, const string& nom, const string& email, const string& mdp, const Matiere& matiere)
-        : Utilisateur(id, nom, email, mdp), Matiere_assignee(matiere) {}
-
-    void Affichage() const override {
-        cout << "Enseignant:" << endl;
-        cout << "ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << ", Mot de passe: " << GetMdp() << endl;
-        Matiere_assignee.Affichage();
+        : Utilisateur(id, nom, email, mdp), Matiere_assignee(matiere) {
     }
 
+    void Affichage() const override {
+        cout << "Enseignant ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << endl;
+        Matiere_assignee.Affichage();
+    }
+};
+
+struct Date {
+    int jour, mois, annee;
 };
 
 class Etudiant : public Utilisateur {
-
-protected:
+private:
     Date Date_Naissance;
-    vector<Classe> Classes;
     Parent Parent_Etudiant;
-
-public:
-
-    Etudiant(int id, const string& nom, const string& email, const string& mdp, const Date date_naissence, const Parent& parent, const vector<Classe>& classes)
-        : Utilisateur(id, nom, email, mdp), Date_Naissance(date_naissence), Parent_Etudiant(parent), Classes(classes) {}
-
-    void Affichage() const override {
-        cout << "Etudiant:" << endl;
-        cout << "ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << ", Mot de passe: " << GetMdp() << endl;
-        cout << "Date de naissance: " << Date_Naissance.jour << "/" << Date_Naissance.mois << "/" << Date_Naissance.annee << endl;
-    }
-
-};
-
-class Parent : public Utilisateur {
-
-public:
-    Parent(int id, const string& nom, const string& email, const string& mdp)
-        : Utilisateur(id, nom, email, mdp) {}
-
-    void Affichage() const override {
-        cout << "Parent:" << endl;
-        cout << "ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << ", Mot de passe: " << GetMdp() << endl;
-    }
-};
-
-class Classe {
-
-private:
-    int Classe_id;
-
-protected:
-    string Nom;
-    vector<Enseignant> Enseignants;
-
-public:
-    Classe(int id, const string& nom) : Classe_id(id), Nom(nom) {}
-
-    void Affichage() const {
-        cout << "Classe:" << endl;
-        cout << "ID:" << Classe_id << "Nom:" << Nom << endl;
-
-        for (const auto& enseignant : Enseignants) {
-            enseignant.Affichage();
-        }
-    }
-};
-
-class Matiere {
-
-private:
-    int Matiere_id;
-
-protected:
-    string Nom;
-
-public:
-    Matiere(int id, const string& nom) : Matiere_id(id), Nom(nom) {}
-
-    void Affichage() const {
-        cout << "Matiere:" << endl;
-        cout << "ID:" << Matiere_id << "Nom:" << Nom << endl;
-    }
-};
-
-class Examen {
-private:
-    int Examen_id;
-
-protected:
-    string Titre, Description;
-    Date Date_examen;
     vector<Classe> Classes;
 
 public:
-    Examen(int id, const string& titre, const string& description, const Date date, const vector<Classe>& classes)
-    : Examen_id(id), Titre(titre), Description(description), Date_examen(date), Classes(classes) {}
+    Etudiant(int id, const string& nom, const string& email, const string& mdp, const Date& dateNaissance, const Parent& parent, const vector<Classe>& classes)
+        : Utilisateur(id, nom, email, mdp), Date_Naissance(dateNaissance), Parent_Etudiant(parent), Classes(classes) {
+    }
 
-    void Affichage() const {
-
-        cout << "Examen ID: " << Examen_id << endl;
-        cout << "Titre: " << Titre << endl;
-        cout << "Description: " << Description << endl;
-        cout << "Date de l'examen: " << Date_examen.jour << "/" << Date_examen.mois << "/" << Date_examen.annee << endl;
-
+    void Affichage() const override {
+        cout << "Etudiant ID: " << GetUtilisateurId() << ", Nom: " << Nom << ", Email: " << Email << endl;
+        cout << "Date de naissance: " << Date_Naissance.jour << "/" << Date_Naissance.mois << "/" << Date_Naissance.annee << endl;
+        Parent_Etudiant.Affichage();
         for (const auto& classe : Classes) {
             classe.Affichage();
         }
     }
 };
 
-int main()
-{
-    // Créer un Objet de la classe Database qui va établir la connexion automatiquement.
+class Examen {
+private:
+    int Examen_id;
+    string Titre, Description;
+    Date Date_examen;
+    vector<Classe> Classes;
+
+public:
+    Examen(int id, const string& titre, const string& description, const Date& date, const vector<Classe>& classes)
+        : Examen_id(id), Titre(titre), Description(description), Date_examen(date), Classes(classes) {
+    }
+
+    void Affichage() const {
+        cout << "Examen ID: " << Examen_id << endl;
+        cout << "Titre: " << Titre << endl;
+        cout << "Description: " << Description << endl;
+        cout << "Date de l'examen: " << Date_examen.jour << "/" << Date_examen.mois << "/" << Date_examen.annee << endl;
+        for (const auto& classe : Classes) {
+            classe.Affichage();
+        }
+    }
+};
+
+// Main Function
+int main() {
+    // Create a Database object to establish the connection automatically
     Database DB;
 
-    // Ajouter un Admin
+    // Adding an Admin
     string adminNom, adminEmail, adminMdp;
-    cout << "Entrez le nom de  l'admin: ";
+    cout << "Entrez le nom de l'admin: ";
     cin >> adminNom;
-    cout << "Entez l'email de l'admin: ";
+    cout << "Entrez l'email de l'admin: ";
     cin >> adminEmail;
-    cout << "Entez le mot de passe de l'admin: ";
+    cout << "Entrez le mot de passe de l'admin: ";
     cin >> adminMdp;
 
     DB.Ajouter_Admin(adminNom, adminEmail, adminMdp);
 
+    // Deleting an Admin
+    /*int adminID;
+    cout << "Entrez l'ID de l'admin à supprimer: ";
+    cin >> adminID;
 
+    DB.Supprimer_Admin(adminID);*/
 
-    return 0; // La connexion est automatiquement arretée grace au destructeur quand le code est exécuté et terminé et l'Objet est détruit. 
+    return 0; // Connection is automatically closed when the Database object is destroyed
 }
-
