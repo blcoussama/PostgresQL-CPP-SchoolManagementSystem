@@ -154,57 +154,6 @@ public:
     }
 };
 
-
-// CLASS ENSEIGNANT
-class Enseignant : public Utilisateur {
-private:
-    Matiere Matiere_assignee;
-    vector<Classe> Classes;
-
-public:
-    Enseignant(int id, const string& nom, const string& email, const string& mdp, const Matiere& matiere, const vector<Classe>& classes)
-        : Utilisateur(id, nom, email, mdp), Matiere_assignee(matiere), Classes(classes) {
-    }
-
-    void Affichage() const override {
-        cout << "ID Enseignant : " << GetUtilisateurId() << ", Nom : " << Nom << ", Email : " << Email << endl;
-
-        Matiere_assignee.Affichage();
-
-        for (const auto& classe : Classes) {
-            classe.Affichage();
-        }
-    }
-
-    Matiere GetMatiere() const {
-        return Matiere_assignee;
-    }
-};
-
-// CLASS ETUDIANT
-class Etudiant : public Utilisateur {
-private:
-    Date Date_Naissance;
-    Parent Parent_Etudiant;
-    vector<Classe> Classes;
-
-public:
-    Etudiant(int id, const string& nom, const string& email, const string& mdp, const Date& dateNaissance, const Parent& parent, const vector<Classe>& classes)
-        : Utilisateur(id, nom, email, mdp), Date_Naissance(dateNaissance), Parent_Etudiant(parent), Classes(classes) {
-    }
-
-    void Affichage() const override {
-        cout << "ID Etudiant : " << GetUtilisateurId() << ", Nom : " << Nom << ", Email : " << Email << endl;
-        cout << "Date de naissance : " << Date_Naissance.jour << "/" << Date_Naissance.mois << "/" << Date_Naissance.annee << endl;
-
-        Parent_Etudiant.Affichage();
-
-        for (const auto& classe : Classes) {
-            classe.Affichage();
-        }
-    }
-};
-
 // CLASS EXAMEN
 class Examen {
 private:
@@ -231,6 +180,100 @@ public:
 
         for (const auto& matiere : Matieres) {
             matiere.Affichage();
+        }
+    }
+};
+
+
+// CLASS ENSEIGNANT
+class Enseignant : public Utilisateur {
+private:
+    Matiere Matiere_assignee;
+    vector<Classe> Classes;
+    Database& DB;
+
+public:
+    Enseignant(int id, const string& nom, const string& email, const string& mdp, const Matiere& matiere, const vector<Classe>& classes, Database& database)
+        : Utilisateur(id, nom, email, mdp), Matiere_assignee(matiere), Classes(classes), DB(database) {}
+
+    void Affichage() const override {
+        cout << "ID Enseignant : " << GetUtilisateurId() << ", Nom : " << Nom << ", Email : " << Email << endl;
+
+        Matiere_assignee.Affichage();
+
+        for (const auto& classe : Classes) {
+            classe.Affichage();
+        }
+    }
+
+    // CREER UN EXAMEN POUR UNE CLASSE
+    Examen Creer_Examen(const string& titre, const string& description, const Date& date_examen, int classe_id ) {
+
+        // Vérifier si l'enseignant est assigné à cette classe
+        string checkQuery = "SELECT * FROM enseignants_classes WHERE enseignant_id = "
+            + to_string(GetUtilisateurId()) + " AND classe_id = " + to_string(classe_id) + ";";
+
+        PGresult* checkRes = DB.executeQuery(checkQuery);
+
+        if (PQntuples(checkRes) == 0) {
+            cerr << "Erreur: Vous n'êtes pas assigné à cette classe." << endl;
+            PQclear(checkRes);
+            // Retourner un examen vide ou lever une exception
+            return Examen(0, "", "", date_examen, vector<Classe>(), vector<Matiere>());
+        }
+        PQclear(checkRes);
+
+        // Formater la date pour PostgreSQL (YYYY-MM-DD)
+        string dateStr = to_string(date_examen.annee) + "-" +
+            (date_examen.mois < 10 ? "0" : "") + to_string(date_examen.mois) + "-" +
+            (date_examen.jour < 10 ? "0" : "") + to_string(date_examen.jour);
+
+        // Créer l'examen dans la base de données
+        string query = "INSERT INTO examens (titre, description, date_examen, classe_id, matiere_id) "
+            "VALUES ('" + titre + "', '" + description + "', '" + dateStr + "', " +
+            to_string(classe_id) + ", " + to_string(Matiere_assignee.GetMatiereId()) + ") "
+            "RETURNING examen_id;";
+
+        PGresult* res = DB.executeQuery(query);
+
+        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+            cerr << "Erreur lors de la création de l'examen : "
+                << PQerrorMessage(DB.getConnection()) << endl;
+            PQclear(res);
+            return Examen(0, "", "", date_examen, vector<Classe>(), vector<Matiere>());
+        }
+
+        int examen_id = atoi(PQgetvalue(res, 0, 0));
+        PQclear(res);
+    }
+
+
+
+    Matiere GetMatiere() const {
+        return Matiere_assignee;
+    } 
+};
+
+// CLASS ETUDIANT
+class Etudiant : public Utilisateur {
+private:
+    Date Date_Naissance;
+    Parent Parent_Etudiant;
+    vector<Classe> Classes;
+
+public:
+    Etudiant(int id, const string& nom, const string& email, const string& mdp, const Date& dateNaissance, const Parent& parent, const vector<Classe>& classes)
+        : Utilisateur(id, nom, email, mdp), Date_Naissance(dateNaissance), Parent_Etudiant(parent), Classes(classes) {
+    }
+
+    void Affichage() const override {
+        cout << "ID Etudiant : " << GetUtilisateurId() << ", Nom : " << Nom << ", Email : " << Email << endl;
+        cout << "Date de naissance : " << Date_Naissance.jour << "/" << Date_Naissance.mois << "/" << Date_Naissance.annee << endl;
+
+        Parent_Etudiant.Affichage();
+
+        for (const auto& classe : Classes) {
+            classe.Affichage();
         }
     }
 };
@@ -335,7 +378,7 @@ public:
         PQclear(res);
     }
 
-    // ASSIGNER UNE CLASSE A UN ETUDIANT
+    // ASSIGNER UN ETUDIANT A UNE CLASSE
     void Assigner_Etudiant_a_Classe(int etudiant_id, int classe_id) {
 
         // Vérifier si l'étudiant est déjà dans cette classe
@@ -345,7 +388,7 @@ public:
         PGresult* checkRes = DB.executeQuery(checkQuery);
 
         if (PQntuples(checkRes) > 0) {
-            cout << "L'étudiant est déjà assigné à cette classe." << endl;
+            cout << "L'etudiant est deja assigne a cette classe." << endl;
             PQclear(checkRes);
             return;
         }
@@ -359,16 +402,16 @@ public:
         PGresult* res = DB.executeQuery(query);
 
         if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-            cout << "L'étudiant a été assigné à la classe avec succès." << endl;
+            cout << "L'etudiant a ete assigne a la classe avec succes." << endl;
         }
         else {
-            cerr << "Erreur lors de l'assignation de l'étudiant à la classe." << endl;
+            cerr << "Erreur lors de l'assignation de l'etudiant a la classe." << endl;
         }
 
         PQclear(res);
     }
 
-    //CREER UNE NOUVEAU ENSEIGNANT
+    //CREER UN NOUVEAU ENSEIGNANT
     Enseignant Creer_Enseignant(const string& Nom, const string& Email, const string& Mdp) {
         string query = "INSERT INTO enseignants (nom, email, mdp) VALUES ('"
             + Nom + "', '" + Email + "', '" + Mdp + "') RETURNING enseignant_id;";
@@ -378,7 +421,7 @@ public:
         int enseignant_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
 
-        return Enseignant(enseignant_id, Nom, Email, Mdp, Matiere(0, ""), vector<Classe>());
+        return Enseignant(enseignant_id, Nom, Email, Mdp, Matiere(0, ""), vector<Classe>(), DB);
     }
 
 
@@ -390,16 +433,16 @@ public:
         PGresult* res = DB.executeQuery(query);
 
         if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-            cout << "La matière a été assignée avec succès à l'enseignant." << endl;
+            cout << "La matiere a ete assignee avec succes a l'enseignant." << endl;
         }
         else {
-            cerr << "Erreur lors de l'assignation de la matière : " << PQerrorMessage(DB.getConnection()) << endl;
+            cerr << "Erreur lors de l'assignation de la matiere : " << PQerrorMessage(DB.getConnection()) << endl;
         }
 
         PQclear(res);
     }
 
-    // ASSIGNER UN ENSEIGNANT A UNE CLASSE  
+    // ASSIGNER UN ENSEIGNANT A UNE CLASSE 
     void Assigner_Enseigant_a_Classe(int enseignant_id, int classe_id) {
 
         // Vérifier si l'enseignant est déjà dans cette classe
@@ -416,18 +459,18 @@ public:
 
         PQclear(checkRes);
 
-        // Insérer l'étudiant dans la table de liaison avec la classe
+        // Insérer l'enseignant dans la table de liaison avec la classe
         string query = "INSERT INTO enseignant_classes (enseignant_id, classe_id) VALUES ("
             + to_string(enseignant_id) + ", " + to_string(classe_id) + ");";
 
         PGresult* res = DB.executeQuery(query);
 
         if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-            cout << "L'enseignant a été assigné à la classe avec succès." << endl;
+            cout << "L'enseignant a ete assigne a la classe avec succes." << endl;
         }
         else {
-            cerr << "Erreur lors de l'assignation de l'enseignant à la classe." << endl;
-        }
+            cerr << "Erreur lors de l'assignation de l'enseignant a la classe." << endl;
+        } 
         PQclear(res);
     }
 };
