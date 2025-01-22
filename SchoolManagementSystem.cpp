@@ -104,13 +104,72 @@ public:
 
 // CLASS PARENT
 class Parent : public Utilisateur {
+private:
+    Database& DB;
+
 public:
-    Parent(int id, const string& nom, const string& email, const string& mdp)
-        : Utilisateur(id, nom, email, mdp) {
-    }
+    Parent(int id, const string& nom, const string& email, const string& mdp, Database& database)
+        : Utilisateur(id, nom, email, mdp), DB(database) {}
 
     void Affichage() const override {
         cout << "ID Parent : " << GetUtilisateurId() << ", Nom : " << Nom << ", Email : " << Email << endl;
+    }
+
+    void voirResultatsEnfants() {
+        // Préparer la requête SQL
+        string query = R"(
+            SELECT 
+                et.nom AS enfant_nom, 
+                ex.nom AS examen_nom, 
+                mat.nom AS matiere_nom, 
+                n.note_val AS note
+            FROM 
+                etudiants et
+            INNER JOIN 
+                notes n ON et.id = n.etudiant_id
+            INNER JOIN 
+                examens ex ON n.examen_id = ex.id
+            INNER JOIN 
+                examens_matieres em ON ex.id = em.examen_id
+            INNER JOIN 
+                matieres mat ON em.matiere_id = mat.id
+            WHERE 
+                et.parent_id = )" + to_string(GetUtilisateurId()) + R"(
+            ORDER BY 
+                et.nom, ex.nom, mat.nom;
+        )";
+
+        // Exécuter la requête
+        PGresult* res = DB.executeQuery(query);
+
+        // Vérifier les résultats
+        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+            cerr << "Erreur lors de l'exécution de la requête : " << PQerrorMessage(DB.getConnection()) << endl;
+            PQclear(res);
+            return;
+        }
+
+        int rows = PQntuples(res);
+        if (rows == 0) {
+            cout << "Aucun résultat trouvé pour vos enfants." << endl;
+        }
+        else {
+            cout << "Résultats de vos enfants :" << endl;
+            for (int i = 0; i < rows; ++i) {
+                string enfantNom = PQgetvalue(res, i, 0);
+                string examenNom = PQgetvalue(res, i, 1);
+                string matiereNom = PQgetvalue(res, i, 2);
+                string note = PQgetvalue(res, i, 3);
+
+                cout << "Enfant : " << enfantNom
+                    << ", Examen : " << examenNom
+                    << ", Matière : " << matiereNom
+                    << ", Note : " << note << endl;
+            }
+        }
+
+        // Libérer les ressources
+        PQclear(res);
     }
 
     int GetParentId() const {
@@ -216,7 +275,7 @@ public:
         PGresult* checkRes = DB.executeQuery(checkQuery);
 
         if (PQntuples(checkRes) == 0) {
-            cerr << "Erreur: Vous n'êtes pas assigné à cette classe." << endl;
+            cerr << "Erreur: Vous n etes pas assigne a cette classe." << endl;
             PQclear(checkRes);
             // Retourner un examen vide ou lever une exception
             return Examen(0, "", "", date_examen, vector<Classe>(), vector<Matiere>());
@@ -237,7 +296,7 @@ public:
         PGresult* res = DB.executeQuery(query);
 
         if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-            cerr << "Erreur lors de la création de l'examen : "
+            cerr << "Erreur lors de la creation de l'examen : "
                 << PQerrorMessage(DB.getConnection()) << endl;
             PQclear(res);
             return Examen(0, "", "", date_examen, vector<Classe>(), vector<Matiere>());
@@ -258,7 +317,7 @@ public:
 
         PGresult* checkRes = DB.executeQuery(checkQuery);
         if (PQntuples(checkRes) == 0) {
-            cerr << "Erreur: Cet examen n'appartient pas à votre matière." << endl;
+            cerr << "Erreur: Cet examen n appartient pas a votre matiere." << endl;
             PQclear(checkRes);
             return;
         }
@@ -274,7 +333,7 @@ public:
 
         PGresult* checkExamRes = DB.executeQuery(checkExamClassQuery);
         if (PQntuples(checkExamRes) == 0) {
-            cerr << "Erreur: Cet étudiant n'est pas dans une classe participant à cet examen." << endl;
+            cerr << "Erreur: Cet etudiant n est pas dans une classe participant a cet examen." << endl;
             PQclear(checkExamRes);
             return;
         }
@@ -290,7 +349,7 @@ public:
 
         PGresult* checkStudentRes = DB.executeQuery(checkStudentQuery);
         if (PQntuples(checkStudentRes) == 0) {
-            cerr << "Erreur: Cet étudiant n'est pas dans une de vos classes." << endl;
+            cerr << "Erreur: Cet etudiant n est pas dans une de vos classes." << endl;
             PQclear(checkStudentRes);
             return;
         }
@@ -305,7 +364,7 @@ public:
 
         PGresult* checkNoteRes = DB.executeQuery(checkNoteQuery);
         if (PQntuples(checkNoteRes) > 0) {
-            cerr << "Erreur: Cet étudiant a déjà une note pour cet examen." << endl;
+            cerr << "Erreur: Cet etudiant a deja une note pour cet examen." << endl;
             PQclear(checkNoteRes);
             return;
         }
@@ -319,7 +378,7 @@ public:
 
         PGresult* res = DB.executeQuery(query);
         if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-            cout << "Note ajoutée avec succès." << endl;
+            cout << "Note ajoutee avec succes." << endl;
         }
         PQclear(res);
     }
@@ -477,7 +536,7 @@ public:
         int parent_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
 
-        return Parent(parent_id, Nom, Email, Mdp);
+        return Parent(parent_id, Nom, Email, Mdp, DB);
     }
 
 
@@ -495,7 +554,7 @@ public:
         int etudiant_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
 
-        return Etudiant(etudiant_id, Nom, Email, Mdp, DateNaissance, Parent(0, "", "", ""), vector<Classe>());
+        return Etudiant(etudiant_id, Nom, Email, Mdp, DateNaissance, Parent(0, "", "", "", DB), vector<Classe>());
     }
     // ASSIGNER UN PARENT A UN ETUDIANT
     void Assigner_Parent_a_Etudiant(int etudiant_id, int parent_id) {
@@ -641,7 +700,7 @@ public:
 
 // Fonction main
 int main() {
-    // Créer un objet Database pour établir automatiquement la connexion
+    // Créer un objet Database pour établir automatiquement la connexion à la Base de données
     Database DB;
 
     return 0; // La connexion est automatiquement fermée lorsque l'objet Database est détruit
