@@ -247,6 +247,83 @@ public:
         PQclear(res);
     }
 
+    // AJOUTER UNE NOTE POUR UN ETUDIANT
+    void Ajouter_Note(int etudiant_id, int examen_id, float note_val) {
+        // 1. Vérifier si l'examen appartient à la matière de l'enseignant
+        string checkQuery =
+            "SELECT em.examen_id "
+            "FROM examens_matieres em "
+            "WHERE em.examen_id = " + to_string(examen_id) + " "
+            "AND em.matiere_id = " + to_string(Matiere_assignee.GetMatiereId()) + ";";
+
+        PGresult* checkRes = DB.executeQuery(checkQuery);
+        if (PQntuples(checkRes) == 0) {
+            cerr << "Erreur: Cet examen n'appartient pas à votre matière." << endl;
+            PQclear(checkRes);
+            return;
+        }
+        PQclear(checkRes);
+
+        // 2. Vérifier si l'étudiant est dans une classe qui participe à l'examen
+        string checkExamClassQuery =
+            "SELECT ec.etudiant_id "
+            "FROM etudiants_classes ec "
+            "JOIN examens_classes exc ON ec.classe_id = exc.classe_id "
+            "WHERE ec.etudiant_id = " + to_string(etudiant_id) + " "
+            "AND exc.examen_id = " + to_string(examen_id) + ";";
+
+        PGresult* checkExamRes = DB.executeQuery(checkExamClassQuery);
+        if (PQntuples(checkExamRes) == 0) {
+            cerr << "Erreur: Cet étudiant n'est pas dans une classe participant à cet examen." << endl;
+            PQclear(checkExamRes);
+            return;
+        }
+        PQclear(checkExamRes);
+
+        // 3. Vérifier si l'étudiant est dans une classe de l'enseignant
+        string checkStudentQuery =
+            "SELECT ec.etudiant_id "
+            "FROM etudiants_classes ec "
+            "JOIN enseignants_classes enc ON ec.classe_id = enc.classe_id "
+            "WHERE ec.etudiant_id = " + to_string(etudiant_id) + " "
+            "AND enc.enseignant_id = " + to_string(GetUtilisateurId()) + ";";
+
+        PGresult* checkStudentRes = DB.executeQuery(checkStudentQuery);
+        if (PQntuples(checkStudentRes) == 0) {
+            cerr << "Erreur: Cet étudiant n'est pas dans une de vos classes." << endl;
+            PQclear(checkStudentRes);
+            return;
+        }
+        PQclear(checkStudentRes);
+
+        // 4. Vérifier si l'étudiant n'a pas déjà une note pour cet examen
+        string checkNoteQuery =
+            "SELECT note_id "
+            "FROM notes "
+            "WHERE etudiant_id = " + to_string(etudiant_id) + " "
+            "AND examen_id = " + to_string(examen_id) + ";";
+
+        PGresult* checkNoteRes = DB.executeQuery(checkNoteQuery);
+        if (PQntuples(checkNoteRes) > 0) {
+            cerr << "Erreur: Cet étudiant a déjà une note pour cet examen." << endl;
+            PQclear(checkNoteRes);
+            return;
+        }
+        PQclear(checkNoteRes);
+
+        // 5. Ajouter la note si toutes les vérifications sont passées
+        string query =
+            "INSERT INTO notes (note_val, etudiant_id, examen_id) "
+            "VALUES (" + to_string(note_val) + ", " +
+            to_string(etudiant_id) + ", " + to_string(examen_id) + ");";
+
+        PGresult* res = DB.executeQuery(query);
+        if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+            cout << "Note ajoutée avec succès." << endl;
+        }
+        PQclear(res);
+    }
+
 
 
     Matiere GetMatiere() const {
@@ -275,6 +352,61 @@ public:
         for (const auto& classe : Classes) {
             classe.Affichage();
         }
+    }
+
+    // METHODE D'AFFICHAGE POUR QUE L'ETUDIANT PUISSE VOIR TOUTEWS SES INFOS 
+    void Afficher_Informations_Etudiant(Database& DB) const {
+        // Afficher les informations de base
+        Affichage();
+
+        // Obtenir et afficher les classes
+        string classesQuery =
+            "SELECT c.nom "
+            "FROM classes c "
+            "JOIN etudiants_classes ec ON c.classe_id = ec.classe_id "
+            "WHERE ec.etudiant_id = " + to_string(GetUtilisateurId()) + ";";
+
+        PGresult* classesRes = DB.executeQuery(classesQuery);
+
+        cout << "\n=== Classes ===" << endl;
+        for (int i = 0; i < PQntuples(classesRes); i++) {
+            cout << "- " << PQgetvalue(classesRes, i, 0) << endl;
+        }
+        PQclear(classesRes);
+
+        // Obtenir et afficher les notes par examen
+        string notesQuery =
+            "SELECT e.titre, m.nom as matiere, n.note_val "
+            "FROM notes n "
+            "JOIN examens e ON n.examen_id = e.examen_id "
+            "JOIN examens_matieres em ON e.examen_id = em.examen_id "
+            "JOIN matieres m ON em.matiere_id = m.matiere_id "
+            "WHERE n.etudiant_id = " + to_string(GetUtilisateurId()) + " "
+            "ORDER BY e.date_examen;";
+
+        PGresult* notesRes = DB.executeQuery(notesQuery);
+
+        cout << "\n=== Notes aux examens ===" << endl;
+        for (int i = 0; i < PQntuples(notesRes); i++) {
+            cout << "Examen: " << PQgetvalue(notesRes, i, 0)
+                << " - Matière: " << PQgetvalue(notesRes, i, 1)
+                << " - Note: " << PQgetvalue(notesRes, i, 2) << endl;
+        }
+        PQclear(notesRes);
+
+        // Calculer et afficher la moyenne générale
+        string moyenneQuery =
+            "SELECT COALESCE(AVG(note_val), 0) as moyenne "
+            "FROM notes "
+            "WHERE etudiant_id = " + to_string(GetUtilisateurId()) + ";";
+
+        PGresult* moyenneRes = DB.executeQuery(moyenneQuery);
+
+        cout << "\n=== Moyenne générale ===" << endl;
+        string moyenne = PQgetvalue(moyenneRes, 0, 0);
+        cout << "Moyenne: " << (moyenne == "0" ? "Pas de notes" : moyenne) << endl;
+
+        PQclear(moyenneRes);
     }
 };
 
@@ -471,6 +603,38 @@ public:
         else {
             cerr << "Erreur lors de l'assignation de l'enseignant a la classe." << endl;
         } 
+        PQclear(res);
+    }
+     
+    // CALCULER LA MOYENNE DE CHAQUE ETUDIANT
+    void Calculer_Moyennes_Etudiants(int classe_id) {
+
+        // Requête pour obtenir tous les étudiants d'une classe
+        string query =
+            "WITH MoyennesEtudiants AS ("
+            "   SELECT e.etudiant_id, e.nom, "
+            "          COALESCE(AVG(n.note_val), 0) as moyenne "
+            "   FROM etudiants e "
+            "   JOIN etudiants_classes ec ON e.etudiant_id = ec.etudiant_id "
+            "   LEFT JOIN notes n ON e.etudiant_id = n.etudiant_id "
+            "   WHERE ec.classe_id = " + to_string(classe_id) + " "
+            "   GROUP BY e.etudiant_id, e.nom"
+            ") "
+            "SELECT * FROM MoyennesEtudiants ORDER BY nom;";
+
+        PGresult* res = DB.executeQuery(query);
+
+        if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+            cout << "\n=== Moyennes des etudiants de la classe ===" << endl;
+
+            for (int i = 0; i < PQntuples(res); i++) {
+                string nom = PQgetvalue(res, i, 1);
+                string moyenne = PQgetvalue(res, i, 2);
+
+                cout << "Etudiant: " << nom << " - Moyenne: "
+                    << (moyenne == "0" ? "Pas de notes" : moyenne) << endl;
+            }
+        }
         PQclear(res);
     }
 };
