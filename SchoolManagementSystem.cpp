@@ -241,6 +241,10 @@ public:
             matiere.Affichage();
         }
     }
+
+    int GetExamenId() const {
+        return Examen_id;
+    }
 };
 
 
@@ -282,7 +286,7 @@ public:
         }
         PQclear(checkRes);
 
-        // Formater la date pour PostgreSQL (YYYY-MM-DD)
+        // Formater la date de l'examen pour PostgreSQL (YYYY-MM-DD)
         string dateStr = to_string(date_examen.annee) + "-" +
             (date_examen.mois < 10 ? "0" : "") + to_string(date_examen.mois) + "-" +
             (date_examen.jour < 10 ? "0" : "") + to_string(date_examen.jour);
@@ -702,6 +706,100 @@ public:
 int main() {
     // Créer un objet Database pour établir automatiquement la connexion à la Base de données
     Database DB;
+
+    // 1. Gestion des administrateurs via la classe Database
+    cout << "\n=== Tests des fonctionnalites Admin via Database ===" << endl;
+    DB.Ajouter_Admin("Admin Principal", "admin@emsi.ma", "admin123");
+
+    // 2. Création d'un Admin pour utiliser ses méthodes
+    Admin admin(1, "Admin Principal", "admin@emsi.ma", "admin123", DB);
+
+    // Création d'une classe
+    cout << "\nCreation d'une classe:" << endl;
+    Classe classe3IIRG3 = admin.Creer_Classe("3eme annee informatique Groupe 3");
+    Classe classe4IIRG4 = admin.Creer_Classe("4eme annee informatique Groupe 4");
+
+    // Création d'une matière
+    cout << "\nCreation des matieres:" << endl;
+    Matiere POO = admin.Creer_Matiere("Programmation Oriente Objet");
+    Matiere JAVA = admin.Creer_Matiere("Programmation JAVA");
+
+    // Création d'un parent
+    cout << "\nCreation d'un parent:" << endl;
+    Parent parent1 = admin.Creer_Parent("Mohamed BELCADI", "mohamed.belcadi@email.com", "mohamed123");
+    Parent parent2 = admin.Creer_Parent("Mariam BELCADI", "mariam.belcadi@email.com", "mariam456");
+
+    // Création d'un étudiant
+    cout << "\nCreation d'un etudiant:" << endl;
+    Date dateNaissance = { 03, 4, 2003 };
+    Etudiant etudiant1 = admin.Creer_Etudiant("Oussama BELCADI", "oussama.belcadi@email.com", "oussama123", dateNaissance);
+    Date dateNaissance2 = { 01, 12, 2000 };
+    Etudiant etudiant2 = admin.Creer_Etudiant("Ayoub BELCADI", "ayoub.belcadi@email.com", "ayoub456", dateNaissance2);
+
+    // Assignation parent-étudiant
+    cout << "\nAssignation parenteétudiant:" << endl;
+    admin.Assigner_Parent_a_Etudiant(etudiant1.GetUtilisateurId(), parent1.GetParentId());
+    admin.Assigner_Parent_a_Etudiant(etudiant2.GetUtilisateurId(), parent2.GetParentId());
+
+    // Assignation étudiant-classe
+    cout << "\nAssignation etudiant-classe:" << endl;
+    admin.Assigner_Etudiant_a_Classe(etudiant1.GetUtilisateurId(), classe3IIRG3.GetClasseId());
+    admin.Assigner_Etudiant_a_Classe(etudiant2.GetUtilisateurId(), classe4IIRG4.GetClasseId());
+
+    // Création d'un enseignant
+    cout << "\nCreation d'un enseignant:" << endl;
+    Enseignant enseignant1 = admin.Creer_Enseignant("Houssam BAZZA", "Houssam.bazza@emsi.ma", "houssam123");
+    Enseignant enseignant2 = admin.Creer_Enseignant("Ahmed RABHI", "prof.francais@emsi.ma", "ahmed456");
+
+    // Assignation matière-enseignant
+    cout << "\nAssignation matiere-enseignant:" << endl;
+    admin.Assigner_Matiere_a_Enseignant(enseignant1.GetUtilisateurId(), POO);
+    admin.Assigner_Matiere_a_Enseignant(enseignant2.GetUtilisateurId(), JAVA);
+
+    // Assignation enseignant-classe
+    cout << "\nAssignation enseignant-classe:" << endl;
+    admin.Assigner_Enseigant_a_Classe(enseignant1.GetUtilisateurId(), classe3IIRG3.GetClasseId());
+    admin.Assigner_Enseigant_a_Classe(enseignant2.GetUtilisateurId(), classe4IIRG4.GetClasseId());
+
+    // Test suppression d'admin par Database
+    cout << "\nSuppression d'un administrateur:" << endl;
+    DB.Supprimer_Admin(1);
+
+    // 2. Test des fonctionnalités Enseignant
+    cout << "\n=== Tests des fonctionnalités Enseignant ===" << endl;
+
+    // Création d'un examen par l'enseignant
+    cout << "\nCreation d'un examen:" << endl;
+    Date dateExamen1 = { 30, 01, 2025 };
+    Examen examen1 = enseignant1.Creer_Examen("Contrôle de P.O.O", "Chapitre 5: Fonctions Virutelles", dateExamen1, classe3IIRG3.GetClasseId());
+    Date dateExamen2 = { 15, 02, 2025 };
+    Examen examen2 = enseignant2.Creer_Examen("Contrôle de JAVA", "Chapitre 3: Classes", dateExamen2, classe4IIRG4.GetClasseId());
+
+    // Ajout d'une note
+    cout << "\nAjout d'une note:" << endl;
+    enseignant1.Ajouter_Note(etudiant1.GetUtilisateurId(), 1, 15.5); 
+    enseignant2.Ajouter_Note(etudiant2.GetUtilisateurId(), 1, 17.0); 
+
+    // 3. Test des fonctionnalités Parent
+    cout << "\n=== Tests des fonctionnalites Parent ===" << endl;
+
+    // Consultation des résultats des enfants
+    cout << "\nConsultation des resultats des enfants:" << endl;
+    parent1.voirResultatsEnfants();
+    parent2.voirResultatsEnfants();
+
+    // 4. Test des fonctionnalités Étudiant
+    cout << "\n=== Tests des fonctionnalités Etudiant ===" << endl;
+
+    // Affichage des informations de l'étudiant
+    cout << "\nAffichage des informations de l'etudiant:" << endl;
+    etudiant1.Afficher_Informations_Etudiant(DB);
+    etudiant2.Afficher_Informations_Etudiant(DB);
+
+    // 5. Calcul des moyennes par l'admin
+    cout << "\n=== Calcul des moyennes ===" << endl;
+    admin.Calculer_Moyennes_Etudiants(classe3IIRG3.GetClasseId());
+    admin.Calculer_Moyennes_Etudiants(classe4IIRG4.GetClasseId());
 
     return 0; // La connexion est automatiquement fermée lorsque l'objet Database est détruit
 }
