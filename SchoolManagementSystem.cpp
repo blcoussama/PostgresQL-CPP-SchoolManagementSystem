@@ -637,12 +637,44 @@ public:
         int enseignant_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
 
+        // Success
+        cout << "Enseignant '" << Nom << "' cree avec succes avec l'ID: " << enseignant_id << endl;
+
         return Enseignant(enseignant_id, Nom, Email, Mdp, Matiere(0, ""), vector<Classe>(), DB);
+    }
+
+    // Récupérer une matière par son Nom
+    Matiere Recuperer_Matiere(const string& nom) {
+        string query = "SELECT * FROM matieres WHERE nom = '" + nom + "';";
+        PGresult* res = DB.executeQuery(query);
+
+        if (PQntuples(res) > 0) {
+            int matiere_id = stoi(PQgetvalue(res, 0, 0)); // matiere_id
+            string nom_matiere = PQgetvalue(res, 0, 1); // nom
+            PQclear(res);
+            return Matiere(matiere_id, nom_matiere); // Retourner un objet Matiere
+        }
+        PQclear(res);
+        throw runtime_error("Matiere non trouvee.");
     }
 
 
     // ASSIGNER UNE MATIERE A UN ENSEIGNANT
     void Assigner_Matiere_a_Enseignant(int enseignant_id, const Matiere& matiere) {
+        // Vérifier si l'enseignant enseigne déjà cette matière
+        string checkQuery = "SELECT * FROM enseignants WHERE enseignant_id = "
+            + to_string(enseignant_id) + " AND matiere_id = " + to_string(matiere.GetMatiereId()) + ";";
+        PGresult* checkRes = DB.executeQuery(checkQuery);
+
+        if (PQntuples(checkRes) > 0) {
+            cout << "Cet enseignant enseigne deja cette matière." << endl;
+            PQclear(checkRes);
+            return;
+        }
+
+        PQclear(checkRes);
+
+        // Mettre à jour la table des enseignants pour assigner la matière
         string query = "UPDATE enseignants SET matiere_id = " + to_string(matiere.GetMatiereId()) +
             " WHERE enseignant_id = " + to_string(enseignant_id) + ";";
 
@@ -652,7 +684,7 @@ public:
             cout << "La matiere a ete assignee avec succes a l'enseignant." << endl;
         }
         else {
-            cerr << "Erreur lors de l'assignation de la matiere : " << PQerrorMessage(DB.getConnection()) << endl;
+            cerr << "Erreur lors de l'assignation de la matiere a l'enseignant." << endl;
         }
 
         PQclear(res);
@@ -728,27 +760,39 @@ int main() {
     // Créer un objet Database pour établir automatiquement la connexion à la Base de données
     Database DB;
 
+    //---------------------------------------------------------------------------------------------------------------------------------//
+
     // 1. Gestion des administrateurs via la classe Database
     /*cout << "\n=== Tests des fonctionnalites Admin via Database ===" << endl;
     DB.Ajouter_Admin("Admin Principal", "admin@emsi.ma", "admin123");*/
 
+    //---------------------------------------------------------------------------------------------------------------------------------//
+
     // 2. Création d'un Admin pour utiliser ses méthodes
     Admin admin(1, "Admin Principal", "admin@emsi.ma", "admin123", DB);
 
+    //---------------------------------------------------------------------------------------------------------------------------------//
+
     //// Création d'une classe
     /*cout << "\nCreation d'une classe:" << endl;
-    Classe classe3IIRG3 = admin.Creer_Classe("3eme annee informatique Groupe 3");
-    Classe classe4IIRG4 = admin.Creer_Classe("4eme annee informatique Groupe 4");*/
+    Classe classe1 = admin.Creer_Classe("3eme annee informatique Groupe 3");
+    Classe classe2 = admin.Creer_Classe("4eme annee informatique Groupe 4");*/
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Création d'une matière
-    cout << "\nCreation des matieres:" << endl;
-    /*Matiere POO = admin.Creer_Matiere("Programmation Oriente Objet");
+    /*cout << "\nCreation des matieres:" << endl;
+    Matiere POO = admin.Creer_Matiere("Programmation Oriente Objet");
     Matiere JAVA = admin.Creer_Matiere("Programmation JAVA");*/
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Création d'un parent
     /*cout << "\nCreation d'un parent:" << endl;
     Parent parent1 = admin.Creer_Parent("Mohamed BELCADI", "mohamed.belcadi@email.com", "mohamed123");
     Parent parent2 = admin.Creer_Parent("Mariam BELCADI", "mariam.belcadi@email.com", "mariam456");*/
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Création d'un étudiant
     /*cout << "\nCreation d'un etudiant:" << endl;
@@ -757,76 +801,113 @@ int main() {
     Date dateNaissance2 = { 01, 12, 2000 };
     Etudiant etudiant2 = admin.Creer_Etudiant("Ayoub BELCADI", "ayoub.belcadi@email.com", "ayoub456", dateNaissance2);*/
 
+    //---------------------------------------------------------------------------------------------------------------------------------//
+
     //// Assignation parent-étudiant
-    int parent1_id = 1; // ID of 'Mohamed BELCADI' from the database
-    int parent2_id = 2; // ID of 'Mariam BELCADI' from the database
+    //int parent1_id = 1; 
+    //int parent2_id = 2; 
 
-    int etudiant1_id = 1; // ID of 'Oussama BELCADI' from the database
-    int etudiant2_id = 2; // ID of 'Ayoub BELCADI' from the database
+    //int etudiant1_id = 1; 
+    //int etudiant2_id = 2; 
 
-    cout << "\nAssignation parenteétudiant:" << endl;
-    admin.Assigner_Parent_a_Etudiant(etudiant1_id, parent1_id);
-    admin.Assigner_Parent_a_Etudiant(etudiant2_id, parent2_id);
+    //cout << "\nAssignation parenteétudiant:" << endl;
+    //admin.Assigner_Parent_a_Etudiant(etudiant1_id, parent1_id);
+    //admin.Assigner_Parent_a_Etudiant(etudiant2_id, parent2_id);
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Assignation étudiant-classe
-    //cout << "\nAssignation etudiant-classe:" << endl;
-    //admin.Assigner_Etudiant_a_Classe(etudiant1.GetUtilisateurId(), classe3IIRG3.GetClasseId());
-    //admin.Assigner_Etudiant_a_Classe(etudiant2.GetUtilisateurId(), classe4IIRG4.GetClasseId());
+    /*int etudiant1_id = 1; 
+    int etudiant2_id = 2; 
+    int classe1_id = 8;
+    int classe2_id = 9;
+    cout << "\nAssignation etudiant-classe:" << endl;
+    admin.Assigner_Etudiant_a_Classe(etudiant1_id, classe1_id);
+    admin.Assigner_Etudiant_a_Classe(etudiant2_id, classe2_id);*/
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Création d'un enseignant
-    //cout << "\nCreation d'un enseignant:" << endl;
-    //Enseignant enseignant1 = admin.Creer_Enseignant("Houssam BAZZA", "Houssam.bazza@emsi.ma", "houssam123");
-    //Enseignant enseignant2 = admin.Creer_Enseignant("Ahmed RABHI", "prof.francais@emsi.ma", "ahmed456");
+    /*cout << "\nCreation d'un enseignant:" << endl;
+    Enseignant enseignant1 = admin.Creer_Enseignant("Houssam BAZZA", "Houssam.bazza@emsi.ma", "houssam123");
+    Enseignant enseignant2 = admin.Creer_Enseignant("Ahmed RABHI", "prof.francais@emsi.ma", "ahmed456");*/
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Assignation matière-enseignant
     //cout << "\nAssignation matiere-enseignant:" << endl;
-    //admin.Assigner_Matiere_a_Enseignant(enseignant1.GetUtilisateurId(), POO);
-    //admin.Assigner_Matiere_a_Enseignant(enseignant2.GetUtilisateurId(), JAVA);
+
+    //// Récupérer les matières existantes par leur nom
+    //Matiere POO = admin.Recuperer_Matiere("Programmation Oriente Objet");
+    //Matiere JAVA = admin.Recuperer_Matiere("Programmation JAVA");
+    //// Récupérer les enseignants existants par leur ID
+    //int enseignant1_id = 3;
+    //int enseignant2_id = 4;
+
+    //admin.Assigner_Matiere_a_Enseignant(enseignant1_id, POO);
+    //admin.Assigner_Matiere_a_Enseignant(enseignant2_id, JAVA);
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Assignation enseignant-classe
+    //int classe1_id = 8;
+    //int classe2_id = 9;
+    //// Récupérer les enseignants existants par leur ID
+    //int enseignant1_id = 3;
+    //int enseignant2_id = 4;
+
     //cout << "\nAssignation enseignant-classe:" << endl;
-    //admin.Assigner_Enseigant_a_Classe(enseignant1.GetUtilisateurId(), classe3IIRG3.GetClasseId());
-    //admin.Assigner_Enseigant_a_Classe(enseignant2.GetUtilisateurId(), classe4IIRG4.GetClasseId());
+    //admin.Assigner_Enseigant_a_Classe(enseignant1_id, classe1_id);
+    //admin.Assigner_Enseigant_a_Classe(enseignant2_id, classe2_id);
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Test suppression d'admin par Database
     //cout << "\nSuppression d'un administrateur:" << endl;
     //DB.Supprimer_Admin(1);
 
-    //// 2. Test des fonctionnalités Enseignant
-    //cout << "\n=== Tests des fonctionnalités Enseignant ===" << endl;
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Création d'un examen par l'enseignant
-    //cout << "\nCreation d'un examen:" << endl;
-    //Date dateExamen1 = { 30, 01, 2025 };
-    //Examen examen1 = enseignant1.Creer_Examen("Contrôle de P.O.O", "Chapitre 5: Fonctions Virutelles", dateExamen1, classe3IIRG3.GetClasseId());
-    //Date dateExamen2 = { 15, 02, 2025 };
-    //Examen examen2 = enseignant2.Creer_Examen("Contrôle de JAVA", "Chapitre 3: Classes", dateExamen2, classe4IIRG4.GetClasseId());
+    //// Création d'un examen par l'enseignant pour une classe
+    cout << "\nCreation d'un examen:" << endl;
+
+    int classe1_id = 8;
+    int classe2_id = 9;
+
+    Date dateExamen1 = { 30, 01, 2025 };
+    Examen examen1 = enseignant1.Creer_Examen("Contrôle de P.O.O", "Chapitre 5: Fonctions Virutelles", dateExamen1, classe1_id);
+    Date dateExamen2 = { 15, 02, 2025 };
+    Examen examen2 = enseignant2.Creer_Examen("Contrôle de JAVA", "Chapitre 3: Classes", dateExamen2, classe2_id);
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Ajout d'une note
     //cout << "\nAjout d'une note:" << endl;
     //enseignant1.Ajouter_Note(etudiant1.GetUtilisateurId(), 1, 15.5); 
     //enseignant2.Ajouter_Note(etudiant2.GetUtilisateurId(), 1, 17.0); 
 
-    //// 3. Test des fonctionnalités Parent
-    //cout << "\n=== Tests des fonctionnalites Parent ===" << endl;
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Consultation des résultats des enfants
     //cout << "\nConsultation des resultats des enfants:" << endl;
     //parent1.voirResultatsEnfants();
     //parent2.voirResultatsEnfants();
 
-    //// 4. Test des fonctionnalités Étudiant
-    //cout << "\n=== Tests des fonctionnalités Etudiant ===" << endl;
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Affichage des informations de l'étudiant
     //cout << "\nAffichage des informations de l'etudiant:" << endl;
     //etudiant1.Afficher_Informations_Etudiant(DB);
     //etudiant2.Afficher_Informations_Etudiant(DB);
 
+    //---------------------------------------------------------------------------------------------------------------------------------//
+
     //// 5. Calcul des moyennes par l'admin
     //cout << "\n=== Calcul des moyennes ===" << endl;
     //admin.Calculer_Moyennes_Etudiants(classe3IIRG3.GetClasseId());
     //admin.Calculer_Moyennes_Etudiants(classe4IIRG4.GetClasseId());
+        
+    //---------------------------------------------------------------------------------------------------------------------------------//
 
     return 0; // La connexion est automatiquement fermée lorsque l'objet Database est détruit
 }
