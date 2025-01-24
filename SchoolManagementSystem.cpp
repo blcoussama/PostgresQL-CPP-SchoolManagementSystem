@@ -199,6 +199,10 @@ public:
     int GetMatiereId() const {
         return Matiere_id;
     }
+
+    string GetNom() const {
+        return Nom;
+    }
 };
 
 // CLASS CLASSE
@@ -276,48 +280,140 @@ public:
     }
 
     // CREER UN EXAMEN POUR UNE CLASSE
-    Examen Creer_Examen(const string& titre, const string& description, const Date& date_examen, int classe_id ) {
-
-        // Vérifier si l'enseignant est assigné à cette classe
+    Examen Creer_Examen(const string& titre, const string& description, const Date& date_examen, int classe_id) {
+        // 1. Verify teacher is assigned to class
         string checkQuery = "SELECT * FROM enseignants_classes WHERE enseignant_id = "
             + to_string(GetUtilisateurId()) + " AND classe_id = " + to_string(classe_id) + ";";
 
         PGresult* checkRes = DB.executeQuery(checkQuery);
-
         if (PQntuples(checkRes) == 0) {
-            cerr << "Erreur: Vous n etes pas assigne a cette classe." << endl;
+            cerr << "Erreur: Vous n'êtes pas assigné à cette classe." << endl;
             PQclear(checkRes);
-            // Retourner un examen vide ou lever une exception
-            return Examen(0, "", "", date_examen, vector<Classe>(), vector<Matiere>());
+            return Examen(0, "", "", date_examen, {}, {});
         }
         PQclear(checkRes);
 
-        // Formater la date de l'examen pour PostgreSQL (YYYY-MM-DD)
-        string dateStr = to_string(date_examen.annee) + "-" +
-            (date_examen.mois < 10 ? "0" : "") + to_string(date_examen.mois) + "-" +
-            (date_examen.jour < 10 ? "0" : "") + to_string(date_examen.jour);
+        // 2. Format date for PostgreSQL TIMESTAMP
+        string dateStr = to_string(date_examen.annee) + "-"
+            + (date_examen.mois < 10 ? "0" : "") + to_string(date_examen.mois) + "-"
+            + (date_examen.jour < 10 ? "0" : "") + to_string(date_examen.jour)
+            + " 00:00:00";
 
-        // Créer l'examen dans la base de données
-        string query = "WITH inserted_exam AS ("
+        // 3. Insert into examens
+        const string insertExamQuery =
             "INSERT INTO examens (titre, description, date_examen, duree_minutes) "
-            "VALUES ('" + titre + "', '" + description + "', '" + dateStr + "', 60) "
-            "RETURNING examen_id)"
-            "INSERT INTO examens_classes (examen_id, classe_id) "
-            "SELECT examen_id, " + to_string(classe_id) + " FROM inserted_exam;"
-            "INSERT INTO examens_matieres (examen_id, matiere_id) "
-            "SELECT examen_id, " + to_string(Matiere_assignee.GetMatiereId()) + " FROM inserted_exam;";
+            "VALUES ($1::text, $2::text, $3::timestamp, 60) RETURNING examen_id;";
 
-        PGresult* res = DB.executeQuery(query);
+        // Store parameters in persistent strings
+        string examen_id_str;
+        try {
+            // First insert into examens
+            const char* examParams[3] = {
+                titre.c_str(),
+                description.c_str(),
+                dateStr.c_str()
+            };
 
-        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-            cerr << "Erreur lors de la creation de l'examen : "
-                << PQerrorMessage(DB.getConnection()) << endl;
-            PQclear(res);
-            return Examen(0, "", "", date_examen, vector<Classe>(), vector<Matiere>());
+            PGresult* examRes = PQexecParams(DB.getConnection(),
+                insertExamQuery.c_str(),
+                3,
+                NULL,
+                examParams,
+                NULL,
+                NULL,
+                0
+            );
+
+            if (PQresultStatus(examRes) != PGRES_TUPLES_OK) {
+                cerr << "Erreur création examen: " << PQerrorMessage(DB.getConnection()) << endl;
+                PQclear(examRes);
+                return Examen(0, "", "", date_examen, {}, {});
+            }
+
+            // Get generated ID
+            examen_id_str = PQgetvalue(examRes, 0, 0);
+            int examen_id = stoi(examen_id_str);
+            PQclear(examRes);
+
+            // 4. Insert into examens_classes
+            string insertClasseQuery =
+                "INSERT INTO examens_classes (examen_id, classe_id) "
+                "VALUES ($1::integer, $2::integer);";
+
+            string classe_id_str = to_string(classe_id);
+            const char* classeParams[2] = {
+                examen_id_str.c_str(),
+                classe_id_str.c_str()
+            };
+
+            PGresult* classeRes = PQexecParams(DB.getConnection(),
+                insertClasseQuery.c_str(),
+                2,
+                NULL,
+                classeParams,
+                NULL,
+                NULL,
+                0
+            );
+
+            if (PQresultStatus(classeRes) != PGRES_COMMAND_OK) {
+                cerr << "Erreur liaison classe: " << PQerrorMessage(DB.getConnection()) << endl;
+                PQclear(classeRes);
+                return Examen(0, "", "", date_examen, {}, {});
+            }
+            PQclear(classeRes);
+
+            // 5. Insert into examens_matieres
+            string insertMatiereQuery =
+                "INSERT INTO examens_matieres (examen_id, matiere_id) "
+                "VALUES ($1::integer, $2::integer);";
+
+            string matiere_id_str = to_string(Matiere_assignee.GetMatiereId());
+            const char* matiereParams[2] = {
+                examen_id_str.c_str(),
+                matiere_id_str.c_str()
+            };
+
+            PGresult* matiereRes = PQexecParams(DB.getConnection(),
+                insertMatiereQuery.c_str(),
+                2,
+                NULL,
+                matiereParams,
+                NULL,
+                NULL,
+                0
+            );
+
+            if (PQresultStatus(matiereRes) != PGRES_COMMAND_OK) {
+                cerr << "Erreur liaison matière: " << PQerrorMessage(DB.getConnection()) << endl;
+                PQclear(matiereRes);
+                return Examen(0, "", "", date_examen, {}, {});
+            }
+            PQclear(matiereRes);
+
+            // 6. Return Examen object
+            vector<Classe> classes;
+            classes.emplace_back(classe_id, "");
+            vector<Matiere> matieres;
+            matieres.push_back(Matiere_assignee);
+
+            // After successful exam creation
+            string successMsg = "[SUCCESS] Examen créé: '" + titre + "'\n"
+                + "-> Matière: " + Matiere_assignee.GetNom() + "\n"
+                + "-> Classe: ID " + to_string(classe_id) + "\n"
+                + "-> Date: " + to_string(date_examen.jour) + "/"
+                + to_string(date_examen.mois) + "/"
+                + to_string(date_examen.annee);
+
+            cout << successMsg << endl;
+
+            return Examen(examen_id, titre, description, date_examen, classes, matieres);
+
         }
-
-        int examen_id = atoi(PQgetvalue(res, 0, 0));
-        PQclear(res);
+        catch (const exception& e) {
+            cerr << "Erreur critique: " << e.what() << endl;
+            return Examen(0, "", "", date_examen, {}, {});
+        }
     }
 
     // AJOUTER UNE NOTE POUR UN ETUDIANT
@@ -657,6 +753,42 @@ public:
         PQclear(res);
         throw runtime_error("Matiere non trouvee.");
     }
+    // Récupérer une matière par son ID
+    Matiere Recuperer_Matiere_par_ID(int matiere_id) {
+        string query = "SELECT * FROM matieres WHERE matiere_id = " + to_string(matiere_id) + ";";
+        PGresult* res = DB.executeQuery(query);
+
+        if (PQntuples(res) > 0) {
+            string nom_matiere = PQgetvalue(res, 0, 1); // nom
+            PQclear(res);
+            return Matiere(matiere_id, nom_matiere); // Retourner un objet Matiere avec l'ID et le nom
+        }
+
+        PQclear(res);
+        throw runtime_error("Matiere non trouvee.");
+    }
+    // Récupérer un enseignant par son ID
+    Enseignant Recuperer_Enseignant_par_ID(int enseignant_id) {
+        string query = "SELECT * FROM enseignants WHERE enseignant_id = " + to_string(enseignant_id) + ";";
+        PGresult* res = DB.executeQuery(query);
+
+        if (PQntuples(res) > 0) {
+            int id = stoi(PQgetvalue(res, 0, 0)); // enseignant_id
+            string nom = PQgetvalue(res, 0, 1);   // nom
+            string email = PQgetvalue(res, 0, 2); // email
+            string mdp = PQgetvalue(res, 0, 3);   // mdp
+            int matiere_id = stoi(PQgetvalue(res, 0, 4)); // matiere_id
+            PQclear(res);
+
+            // Récupérer la matière associée à cet enseignant en utilisant l'ID de la matière
+            Matiere matiere = Recuperer_Matiere_par_ID(matiere_id); // Correction ici
+
+            return Enseignant(id, nom, email, mdp, matiere, vector<Classe>(), DB);
+        }
+
+        PQclear(res);
+        throw runtime_error("Enseignant non trouve.");
+    }
 
 
     // ASSIGNER UNE MATIERE A UN ENSEIGNANT
@@ -763,8 +895,8 @@ int main() {
     //---------------------------------------------------------------------------------------------------------------------------------//
 
     // 1. Gestion des administrateurs via la classe Database
-    /*cout << "\n=== Tests des fonctionnalites Admin via Database ===" << endl;
-    DB.Ajouter_Admin("Admin Principal", "admin@emsi.ma", "admin123");*/
+    cout << "\n=== Tests des fonctionnalites Admin via Database ===" << endl;
+    DB.Ajouter_Admin("Admin Principal", "admin@emsi.ma", "admin123");
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
@@ -869,15 +1001,22 @@ int main() {
     //---------------------------------------------------------------------------------------------------------------------------------//
 
     //// Création d'un examen par l'enseignant pour une classe
-    cout << "\nCreation d'un examen:" << endl;
+    //cout << "\nCreation d'un examen:" << endl;
 
-    int classe1_id = 8;
-    int classe2_id = 9;
+    //int enseignant1_id = 3;
+    //int enseignant2_id = 4;
 
-    Date dateExamen1 = { 30, 01, 2025 };
-    Examen examen1 = enseignant1.Creer_Examen("Contrôle de P.O.O", "Chapitre 5: Fonctions Virutelles", dateExamen1, classe1_id);
-    Date dateExamen2 = { 15, 02, 2025 };
-    Examen examen2 = enseignant2.Creer_Examen("Contrôle de JAVA", "Chapitre 3: Classes", dateExamen2, classe2_id);
+    //// Récupérer les enseignants par leur ID
+    //Enseignant enseignant1 = admin.Recuperer_Enseignant_par_ID(enseignant1_id);
+    //Enseignant enseignant2 = admin.Recuperer_Enseignant_par_ID(enseignant2_id);
+
+    //int classe1_id = 8;
+    //int classe2_id = 9;
+
+    //Date dateExamen1 = { 30, 1, 2025 };
+    //Examen examen1 = enseignant1.Creer_Examen("Controle de P.O.O", "Chapitre 5: Fonctions Virutelles", dateExamen1, classe1_id);
+    //Date dateExamen2 = { 15, 2, 2025 };
+    //Examen examen2 = enseignant2.Creer_Examen("Controle de JAVA", "Chapitre 3: Classes", dateExamen2, classe2_id);
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
