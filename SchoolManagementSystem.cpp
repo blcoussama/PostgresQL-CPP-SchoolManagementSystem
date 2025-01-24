@@ -528,7 +528,7 @@ public:
         PQclear(res);
 
         // Success
-        cout << "Classe '" << Nom << "' creee avec succes avec l'ID: " << classe_id << endl;
+        cout << "Classe '" << Nom << "' cree avec succes avec l'ID: " << classe_id << endl;
 
         return Classe(classe_id, Nom);
     }
@@ -541,6 +541,9 @@ public:
         int matiere_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
 
+        // Success
+        cout << "Matiere '" << Nom << "' cree avec succes avec l'ID: " << matiere_id << endl;
+
         return Matiere(matiere_id, Nom);
     }
 
@@ -551,6 +554,9 @@ public:
 
         int parent_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
+
+        // Success
+        cout << "Parent '" << Nom << "' cree avec succes avec l'ID: " << parent_id << endl;
 
         return Parent(parent_id, Nom, Email, Mdp, DB);
     }
@@ -569,6 +575,9 @@ public:
 
         int etudiant_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
+
+        // Success
+        cout << "Etudiant '" << Nom << "' cree avec succes avec l'ID: " << etudiant_id << "Ne le: " << dateNaissanceStr << endl;
 
         return Etudiant(etudiant_id, Nom, Email, Mdp, DateNaissance, Parent(0, "", "", "", DB), vector<Classe>());
     }
@@ -727,31 +736,37 @@ int main() {
     Admin admin(1, "Admin Principal", "admin@emsi.ma", "admin123", DB);
 
     //// Création d'une classe
-    cout << "\nCreation d'une classe:" << endl;
+    /*cout << "\nCreation d'une classe:" << endl;
     Classe classe3IIRG3 = admin.Creer_Classe("3eme annee informatique Groupe 3");
-    Classe classe4IIRG4 = admin.Creer_Classe("4eme annee informatique Groupe 4");
+    Classe classe4IIRG4 = admin.Creer_Classe("4eme annee informatique Groupe 4");*/
 
     //// Création d'une matière
-    //cout << "\nCreation des matieres:" << endl;
-    //Matiere POO = admin.Creer_Matiere("Programmation Oriente Objet");
-    //Matiere JAVA = admin.Creer_Matiere("Programmation JAVA");
+    cout << "\nCreation des matieres:" << endl;
+    /*Matiere POO = admin.Creer_Matiere("Programmation Oriente Objet");
+    Matiere JAVA = admin.Creer_Matiere("Programmation JAVA");*/
 
     //// Création d'un parent
-    //cout << "\nCreation d'un parent:" << endl;
-    //Parent parent1 = admin.Creer_Parent("Mohamed BELCADI", "mohamed.belcadi@email.com", "mohamed123");
-    //Parent parent2 = admin.Creer_Parent("Mariam BELCADI", "mariam.belcadi@email.com", "mariam456");
+    /*cout << "\nCreation d'un parent:" << endl;
+    Parent parent1 = admin.Creer_Parent("Mohamed BELCADI", "mohamed.belcadi@email.com", "mohamed123");
+    Parent parent2 = admin.Creer_Parent("Mariam BELCADI", "mariam.belcadi@email.com", "mariam456");*/
 
     //// Création d'un étudiant
-    //cout << "\nCreation d'un etudiant:" << endl;
-    //Date dateNaissance = { 03, 4, 2003 };
-    //Etudiant etudiant1 = admin.Creer_Etudiant("Oussama BELCADI", "oussama.belcadi@email.com", "oussama123", dateNaissance);
-    //Date dateNaissance2 = { 01, 12, 2000 };
-    //Etudiant etudiant2 = admin.Creer_Etudiant("Ayoub BELCADI", "ayoub.belcadi@email.com", "ayoub456", dateNaissance2);
+    /*cout << "\nCreation d'un etudiant:" << endl;
+    Date dateNaissance = { 03, 4, 2003 };
+    Etudiant etudiant1 = admin.Creer_Etudiant("Oussama BELCADI", "oussama.belcadi@email.com", "oussama123", dateNaissance);
+    Date dateNaissance2 = { 01, 12, 2000 };
+    Etudiant etudiant2 = admin.Creer_Etudiant("Ayoub BELCADI", "ayoub.belcadi@email.com", "ayoub456", dateNaissance2);*/
 
     //// Assignation parent-étudiant
-    //cout << "\nAssignation parenteétudiant:" << endl;
-    //admin.Assigner_Parent_a_Etudiant(etudiant1.GetUtilisateurId(), parent1.GetParentId());
-    //admin.Assigner_Parent_a_Etudiant(etudiant2.GetUtilisateurId(), parent2.GetParentId());
+    int parent1_id = 1; // ID of 'Mohamed BELCADI' from the database
+    int parent2_id = 2; // ID of 'Mariam BELCADI' from the database
+
+    int etudiant1_id = 1; // ID of 'Oussama BELCADI' from the database
+    int etudiant2_id = 2; // ID of 'Ayoub BELCADI' from the database
+
+    cout << "\nAssignation parenteétudiant:" << endl;
+    admin.Assigner_Parent_a_Etudiant(etudiant1_id, parent1_id);
+    admin.Assigner_Parent_a_Etudiant(etudiant2_id, parent2_id);
 
     //// Assignation étudiant-classe
     //cout << "\nAssignation etudiant-classe:" << endl;
