@@ -874,14 +874,14 @@ public:
             int parent_id = stoi(PQgetvalue(res, 0, 4));
 
             // Conversion de la date SQL (YYYY-MM-DD) en struct Date
-            Date dateNaissance;
+            Date dateNaissance{};
             sscanf(date_naissance.c_str(), "%d-%d-%d",
                 &dateNaissance.annee, &dateNaissance.mois, &dateNaissance.jour);
 
             // Récupération du parent associé
             Parent parent = Recuperer_Parent_par_ID(parent_id);
 
-            // Récupération des classes (méthode existante)
+            // Récupération des classes 
             vector<Classe> classes = Recuperer_Classes_Etudiant(etudiant_id);
 
             PQclear(res);
