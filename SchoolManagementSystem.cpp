@@ -150,17 +150,17 @@ public:
 
         // Vérifier les résultats
         if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-            cerr << "Erreur lors de l'exécution de la requête : " << PQerrorMessage(DB.getConnection()) << endl;
+            cerr << "Erreur lors de l'execution de la requete : " << PQerrorMessage(DB.getConnection()) << endl;
             PQclear(res);
             return;
         }
 
         int rows = PQntuples(res);
         if (rows == 0) {
-            cout << "Aucun résultat trouvé pour vos enfants." << endl;
+            cout << "Aucun resultat trouve pour vos enfants." << endl;
         }
         else {
-            cout << "Résultats de vos enfants :" << endl;
+            cout << "Resultats de(s) etudiant(s) :" << endl;
             for (int i = 0; i < rows; ++i) {
                 string enfantNom = PQgetvalue(res, i, 0);
                 string examenNom = PQgetvalue(res, i, 1);
@@ -169,7 +169,7 @@ public:
 
                 cout << "Enfant : " << enfantNom
                     << ", Examen : " << examenNom
-                    << ", Matière : " << matiereNom
+                    << ", Matiere : " << matiereNom
                     << ", Note : " << note << endl;
             }
         }
@@ -516,13 +516,9 @@ public:
         cout << "Date de naissance : " << Date_Naissance.jour << "/" << Date_Naissance.mois << "/" << Date_Naissance.annee << endl;
 
         Parent_Etudiant.Affichage();
-
-        for (const auto& classe : Classes) {
-            classe.Affichage();
-        }
     }
 
-    // METHODE D'AFFICHAGE POUR QUE L'ETUDIANT PUISSE VOIR TOUTEWS SES INFOS 
+    // METHODE D'AFFICHAGE POUR QUE L'ETUDIANT PUISSE VOIR TOUTES SES INFOS 
     void Afficher_Informations_Etudiant(Database& DB) const {
         // Afficher les informations de base
         Affichage();
@@ -557,20 +553,20 @@ public:
         cout << "\n=== Notes aux examens ===" << endl;
         for (int i = 0; i < PQntuples(notesRes); i++) {
             cout << "Examen: " << PQgetvalue(notesRes, i, 0)
-                << " - Matière: " << PQgetvalue(notesRes, i, 1)
+                << " - Matiere: " << PQgetvalue(notesRes, i, 1)
                 << " - Note: " << PQgetvalue(notesRes, i, 2) << endl;
         }
         PQclear(notesRes);
 
         // Calculer et afficher la moyenne générale
         string moyenneQuery =
-            "SELECT COALESCE(AVG(note_val), 0) as moyenne "
+            "SELECT COALESCE(ROUND(AVG(note_val)::numeric, 2), 0.00) as moyenne "
             "FROM notes "
             "WHERE etudiant_id = " + to_string(GetUtilisateurId()) + ";";
 
         PGresult* moyenneRes = DB.executeQuery(moyenneQuery);
 
-        cout << "\n=== Moyenne générale ===" << endl;
+        cout << "\n=== Moyenne generale ===" << endl;
         string moyenne = PQgetvalue(moyenneRes, 0, 0);
         cout << "Moyenne: " << (moyenne == "0" ? "Pas de notes" : moyenne) << endl;
 
@@ -673,7 +669,7 @@ public:
         PQclear(res);
 
         // Success
-        cout << "Etudiant '" << Nom << "' cree avec succes avec l'ID: " << etudiant_id << "Ne le: " << dateNaissanceStr << endl;
+        cout << "Etudiant '" << Nom << "' cree avec succes avec l'ID: " << etudiant_id << ", Ne le: " << dateNaissanceStr << endl;
 
         return Etudiant(etudiant_id, Nom, Email, Mdp, DateNaissance, Parent(0, "", "", "", DB), vector<Classe>());
     }
@@ -822,6 +818,80 @@ public:
         PQclear(res);
     }
 
+    // Recuperer un parent par son ID
+    Parent Recuperer_Parent_par_ID(int parent_id) {
+        string query = "SELECT nom, email, mdp FROM parents WHERE parent_id = " + to_string(parent_id) + ";";
+        PGresult* res = DB.executeQuery(query);
+
+        if (PQntuples(res) > 0) {
+            string nom = PQgetvalue(res, 0, 0);
+            string email = PQgetvalue(res, 0, 1);
+            string mdp = PQgetvalue(res, 0, 2);
+            PQclear(res);
+            return Parent(parent_id, nom, email, mdp, DB);
+        }
+
+        PQclear(res);
+        throw runtime_error("Parent non trouve.");
+    }
+
+    // Recuperer les classe d'un etudiant par son ID
+    vector<Classe> Recuperer_Classes_Etudiant(int etudiant_id) {
+        vector<Classe> classes;
+        string query =
+            "SELECT c.classe_id, c.nom "
+            "FROM classes c "
+            "JOIN etudiants_classes ec ON c.classe_id = ec.classe_id "
+            "WHERE ec.etudiant_id = " + to_string(etudiant_id) + ";";
+
+        PGresult* res = DB.executeQuery(query);
+
+        if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+            for (int i = 0; i < PQntuples(res); i++) {
+                int classe_id = stoi(PQgetvalue(res, i, 0));
+                string nom_classe = PQgetvalue(res, i, 1);
+                classes.emplace_back(classe_id, nom_classe);
+            }
+        }
+
+        PQclear(res);
+        return classes;
+    }
+    // Recuperer un etudiant par son ID
+    Etudiant Recuperer_Etudiant_par_ID(int etudiant_id) {
+        string query =
+            "SELECT nom, email, mdp, date_naissance, parent_id "
+            "FROM etudiants WHERE etudiant_id = " + to_string(etudiant_id) + ";";
+
+        PGresult* res = DB.executeQuery(query);
+
+        if (PQntuples(res) > 0) {
+            // Récupération des données
+            string nom = PQgetvalue(res, 0, 0);
+            string email = PQgetvalue(res, 0, 1);
+            string mdp = PQgetvalue(res, 0, 2);
+            string date_naissance = PQgetvalue(res, 0, 3);
+            int parent_id = stoi(PQgetvalue(res, 0, 4));
+
+            // Conversion de la date SQL (YYYY-MM-DD) en struct Date
+            Date dateNaissance;
+            sscanf(date_naissance.c_str(), "%d-%d-%d",
+                &dateNaissance.annee, &dateNaissance.mois, &dateNaissance.jour);
+
+            // Récupération du parent associé
+            Parent parent = Recuperer_Parent_par_ID(parent_id);
+
+            // Récupération des classes (méthode existante)
+            vector<Classe> classes = Recuperer_Classes_Etudiant(etudiant_id);
+
+            PQclear(res);
+            return Etudiant(etudiant_id, nom, email, mdp, dateNaissance, parent, classes);
+        }
+
+        PQclear(res);
+        throw runtime_error("Etudiant non trouve.");
+    }
+
     // ASSIGNER UN ENSEIGNANT A UNE CLASSE 
     void Assigner_Enseigant_a_Classe(int enseignant_id, int classe_id) {
 
@@ -856,12 +926,24 @@ public:
      
     // CALCULER LA MOYENNE DE CHAQUE ETUDIANT
     void Calculer_Moyennes_Etudiants(int classe_id) {
+        // Récupérer le nom de la classe
+        string classeQuery =
+            "SELECT nom FROM classes WHERE classe_id = " + to_string(classe_id) + ";";
+        PGresult* classeRes = DB.executeQuery(classeQuery);
 
-        // Requête pour obtenir tous les étudiants d'une classe
+        if (PQntuples(classeRes) == 0) {
+            PQclear(classeRes);
+            throw runtime_error("Classe introuvable avec l'ID " + to_string(classe_id));
+        }
+
+        string nom_classe = PQgetvalue(classeRes, 0, 0);
+        PQclear(classeRes);
+
+        // Requête pour les moyennes
         string query =
             "WITH MoyennesEtudiants AS ("
-            "   SELECT e.etudiant_id, e.nom, "
-            "          COALESCE(AVG(n.note_val), 0) as moyenne "
+            "   SELECT e.nom, "
+            "          COALESCE(ROUND(AVG(n.note_val)::numeric, 2), 0.00) as moyenne "
             "   FROM etudiants e "
             "   JOIN etudiants_classes ec ON e.etudiant_id = ec.etudiant_id "
             "   LEFT JOIN notes n ON e.etudiant_id = n.etudiant_id "
@@ -873,14 +955,14 @@ public:
         PGresult* res = DB.executeQuery(query);
 
         if (PQresultStatus(res) == PGRES_TUPLES_OK) {
-            cout << "\n=== Moyennes des etudiants de la classe ===" << endl;
+            cout << "\n=== Moyennes de la classe " << nom_classe << "===" << endl; 
 
             for (int i = 0; i < PQntuples(res); i++) {
-                string nom = PQgetvalue(res, i, 1);
-                string moyenne = PQgetvalue(res, i, 2);
+                string nom = PQgetvalue(res, i, 0);
+                string moyenne = PQgetvalue(res, i, 1);
 
-                cout << "Etudiant: " << nom << " - Moyenne: "
-                    << (moyenne == "0" ? "Pas de notes" : moyenne) << endl;
+                cout << nom << " : "
+                    << (moyenne == "0.00" ? "Pas de notes" : moyenne) << endl; 
             }
         }
         PQclear(res);
@@ -900,151 +982,192 @@ int main() {
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    // 2. Création d'un Admin pour utiliser ses méthodes
+    // 2. Selectionner l'Admin creé pour utiliser ses méthodes
     Admin admin(1, "Admin Principal", "admin@emsi.ma", "admin123", DB);
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Création d'une classe
-    /*cout << "\nCreation d'une classe:" << endl;
-    Classe classe1 = admin.Creer_Classe("3eme annee informatique Groupe 3");
-    Classe classe2 = admin.Creer_Classe("4eme annee informatique Groupe 4");*/
+    // Création d'une classe
+    cout << "\nCreation d'une classe:" << endl;
+
+    Classe classe1 = admin.Creer_Classe("3IIR G3");
+
+    Classe classe2 = admin.Creer_Classe("4IIR G4");
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Création d'une matière
-    /*cout << "\nCreation des matieres:" << endl;
+    // Création d'une matière
+    cout << "\nCreation des matieres:" << endl;
+
     Matiere POO = admin.Creer_Matiere("Programmation Oriente Objet");
-    Matiere JAVA = admin.Creer_Matiere("Programmation JAVA");*/
+
+    Matiere JAVA = admin.Creer_Matiere("Programmation JAVA");
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Création d'un parent
-    /*cout << "\nCreation d'un parent:" << endl;
+    // Création d'un parent
+    cout << "\nCreation d'un parent:" << endl;
+
     Parent parent1 = admin.Creer_Parent("Mohamed BELCADI", "mohamed.belcadi@email.com", "mohamed123");
-    Parent parent2 = admin.Creer_Parent("Mariam BELCADI", "mariam.belcadi@email.com", "mariam456");*/
+
+    Parent parent2 = admin.Creer_Parent("Mariam BELCADI", "mariam.belcadi@email.com", "mariam456");
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Création d'un étudiant
-    /*cout << "\nCreation d'un etudiant:" << endl;
+    // Création d'un étudiant
+    cout << "\nCreation d'un etudiant:" << endl;
+
     Date dateNaissance = { 03, 4, 2003 };
     Etudiant etudiant1 = admin.Creer_Etudiant("Oussama BELCADI", "oussama.belcadi@email.com", "oussama123", dateNaissance);
+
     Date dateNaissance2 = { 01, 12, 2000 };
-    Etudiant etudiant2 = admin.Creer_Etudiant("Ayoub BELCADI", "ayoub.belcadi@email.com", "ayoub456", dateNaissance2);*/
+    Etudiant etudiant2 = admin.Creer_Etudiant("Ayoub BELCADI", "ayoub.belcadi@email.com", "ayoub456", dateNaissance2);
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Assignation parent-étudiant
-    //int parent1_id = 1; 
-    //int parent2_id = 2; 
+    // Assignation parent-étudiant
+    int parent1_id = 1; 
+    int parent2_id = 2; 
 
-    //int etudiant1_id = 1; 
-    //int etudiant2_id = 2; 
-
-    //cout << "\nAssignation parenteétudiant:" << endl;
-    //admin.Assigner_Parent_a_Etudiant(etudiant1_id, parent1_id);
-    //admin.Assigner_Parent_a_Etudiant(etudiant2_id, parent2_id);
-
-    //---------------------------------------------------------------------------------------------------------------------------------//
-
-    //// Assignation étudiant-classe
-    /*int etudiant1_id = 1; 
+    int etudiant1_id = 1; 
     int etudiant2_id = 2; 
-    int classe1_id = 8;
-    int classe2_id = 9;
+
+    cout << "\nAssignation parent-etudiant:" << endl;
+    admin.Assigner_Parent_a_Etudiant(etudiant1_id, parent1_id);
+    admin.Assigner_Parent_a_Etudiant(etudiant2_id, parent2_id);
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
+
+    // Assignation étudiant-classe
+    int etudiant1_id = 1; 
+    int etudiant2_id = 2; 
+
+    int classe1_id = 1;
+    int classe2_id = 2;
+
     cout << "\nAssignation etudiant-classe:" << endl;
     admin.Assigner_Etudiant_a_Classe(etudiant1_id, classe1_id);
-    admin.Assigner_Etudiant_a_Classe(etudiant2_id, classe2_id);*/
+    admin.Assigner_Etudiant_a_Classe(etudiant2_id, classe2_id);
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Création d'un enseignant
-    /*cout << "\nCreation d'un enseignant:" << endl;
+    // Création d'un enseignant
+    cout << "\nCreation d'un enseignant:" << endl;
+
     Enseignant enseignant1 = admin.Creer_Enseignant("Houssam BAZZA", "Houssam.bazza@emsi.ma", "houssam123");
-    Enseignant enseignant2 = admin.Creer_Enseignant("Ahmed RABHI", "prof.francais@emsi.ma", "ahmed456");*/
+
+    Enseignant enseignant2 = admin.Creer_Enseignant("Ahmed RABHI", "prof.francais@emsi.ma", "ahmed456");
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Assignation matière-enseignant
-    //cout << "\nAssignation matiere-enseignant:" << endl;
+    // Assignation matière-enseignant
+    cout << "\nAssignation matiere-enseignant:" << endl;
 
-    //// Récupérer les matières existantes par leur nom
-    //Matiere POO = admin.Recuperer_Matiere("Programmation Oriente Objet");
-    //Matiere JAVA = admin.Recuperer_Matiere("Programmation JAVA");
-    //// Récupérer les enseignants existants par leur ID
-    //int enseignant1_id = 3;
-    //int enseignant2_id = 4;
+    // Récupérer les matières existantes par leur nom
+    Matiere POO = admin.Recuperer_Matiere("Programmation Oriente Objet");
+    Matiere JAVA = admin.Recuperer_Matiere("Programmation JAVA");
 
-    //admin.Assigner_Matiere_a_Enseignant(enseignant1_id, POO);
-    //admin.Assigner_Matiere_a_Enseignant(enseignant2_id, JAVA);
+    // Récupérer les enseignants existants par leur ID
+    int enseignant1_id = 1;
+    int enseignant2_id = 2;
 
-    //---------------------------------------------------------------------------------------------------------------------------------//
-
-    //// Assignation enseignant-classe
-    //int classe1_id = 8;
-    //int classe2_id = 9;
-    //// Récupérer les enseignants existants par leur ID
-    //int enseignant1_id = 3;
-    //int enseignant2_id = 4;
-
-    //cout << "\nAssignation enseignant-classe:" << endl;
-    //admin.Assigner_Enseigant_a_Classe(enseignant1_id, classe1_id);
-    //admin.Assigner_Enseigant_a_Classe(enseignant2_id, classe2_id);
+    admin.Assigner_Matiere_a_Enseignant(enseignant1_id, POO);
+    admin.Assigner_Matiere_a_Enseignant(enseignant2_id, JAVA);
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Test suppression d'admin par Database
-    //cout << "\nSuppression d'un administrateur:" << endl;
-    //DB.Supprimer_Admin(1);
+    // Assignation enseignant-classe
+    int classe1_id = 1;
+    int classe2_id = 2;
+
+    int enseignant1_id = 1;
+    int enseignant2_id = 2;
+
+    cout << "\nAssignation enseignant-classe:" << endl;
+    admin.Assigner_Enseigant_a_Classe(enseignant1_id, classe1_id);
+    admin.Assigner_Enseigant_a_Classe(enseignant2_id, classe2_id);
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Création d'un examen par l'enseignant pour une classe
-    //cout << "\nCreation d'un examen:" << endl;
-
-    //int enseignant1_id = 3;
-    //int enseignant2_id = 4;
-
-    //// Récupérer les enseignants par leur ID
-    //Enseignant enseignant1 = admin.Recuperer_Enseignant_par_ID(enseignant1_id);
-    //Enseignant enseignant2 = admin.Recuperer_Enseignant_par_ID(enseignant2_id);
-
-    //int classe1_id = 8;
-    //int classe2_id = 9;
-
-    //Date dateExamen1 = { 30, 1, 2025 };
-    //Examen examen1 = enseignant1.Creer_Examen("Controle de P.O.O", "Chapitre 5: Fonctions Virutelles", dateExamen1, classe1_id);
-    //Date dateExamen2 = { 15, 2, 2025 };
-    //Examen examen2 = enseignant2.Creer_Examen("Controle de JAVA", "Chapitre 3: Classes", dateExamen2, classe2_id);
+    // Test suppression d'admin par Database
+    cout << "\nSuppression d'un administrateur:" << endl;
+    DB.Supprimer_Admin(1);
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Ajout d'une note
-    //cout << "\nAjout d'une note:" << endl;
-    //enseignant1.Ajouter_Note(etudiant1.GetUtilisateurId(), 1, 15.5); 
-    //enseignant2.Ajouter_Note(etudiant2.GetUtilisateurId(), 1, 17.0); 
+    // Création d'un examen par l'enseignant pour une classe
+    cout << "\nCreation d'un examen:" << endl;
+
+    int enseignant1_id = 1;
+    int enseignant2_id = 2;
+
+    Enseignant enseignant1 = admin.Recuperer_Enseignant_par_ID(enseignant1_id);
+    Enseignant enseignant2 = admin.Recuperer_Enseignant_par_ID(enseignant2_id);
+
+    int classe1_id = 1;
+    int classe2_id = 2;
+
+    Date dateExamen1 = { 30, 1, 2025 };
+    Examen examen1 = enseignant1.Creer_Examen("Controle de P.O.O", "Chapitre 5: Fonctions Virutelles", dateExamen1, classe1_id);
+
+    Date dateExamen2 = { 15, 2, 2025 };
+    Examen examen2 = enseignant2.Creer_Examen("Controle de JAVA", "Chapitre 3: Classes", dateExamen2, classe2_id);
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Consultation des résultats des enfants
-    //cout << "\nConsultation des resultats des enfants:" << endl;
-    //parent1.voirResultatsEnfants();
-    //parent2.voirResultatsEnfants();
+    // Ajout d'une note
+    cout << "\nAjout d'une note:" << endl;
+
+    int enseignant1_id = 1;
+    int enseignant2_id = 2;
+
+    Enseignant enseignant1 = admin.Recuperer_Enseignant_par_ID(enseignant1_id);
+    Enseignant enseignant2 = admin.Recuperer_Enseignant_par_ID(enseignant2_id);
+
+    int etudiant1_id = 1;
+    int etudiant2_id = 2;
+
+    enseignant1.Ajouter_Note(etudiant1_id, 1, 15.5); 
+    enseignant2.Ajouter_Note(etudiant2_id, 2, 17.0); 
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// Affichage des informations de l'étudiant
-    //cout << "\nAffichage des informations de l'etudiant:" << endl;
-    //etudiant1.Afficher_Informations_Etudiant(DB);
-    //etudiant2.Afficher_Informations_Etudiant(DB);
+    // Consultation des résultats des enfants
+    cout << "\nConsultation des resultats des enfants:" << endl;
+
+    int parent1_id = 1;
+    int parent2_id = 2;
+
+    Parent parent2 = admin.Recuperer_Parent_par_ID(parent2_id);
+    Parent parent1 = admin.Recuperer_Parent_par_ID(parent1_id);
+
+    parent1.voirResultatsEnfants();
+    parent2.voirResultatsEnfants();
 
     //---------------------------------------------------------------------------------------------------------------------------------//
 
-    //// 5. Calcul des moyennes par l'admin
-    //cout << "\n=== Calcul des moyennes ===" << endl;
-    //admin.Calculer_Moyennes_Etudiants(classe3IIRG3.GetClasseId());
-    //admin.Calculer_Moyennes_Etudiants(classe4IIRG4.GetClasseId());
+    // Affichage des informations de l'étudiant
+    cout << "\nAffichage des informations de l'etudiant:" << endl;
+
+    int etudiant1_id = 1;
+    int etudiant2_id = 2;
+    
+    Etudiant etudiant1 = admin.Recuperer_Etudiant_par_ID(etudiant1_id);
+    Etudiant etudiant2 = admin.Recuperer_Etudiant_par_ID(etudiant2_id);
+
+    etudiant1.Afficher_Informations_Etudiant(DB);
+    etudiant2.Afficher_Informations_Etudiant(DB);
+
+    //---------------------------------------------------------------------------------------------------------------------------------//
+
+    // 5. Calcul des moyennes par l'admin
+    cout << "\n=== Calcul des moyennes ===" << endl;
+
+    int classe1_id = 1;
+    int classe2_id = 2;
+
+    admin.Calculer_Moyennes_Etudiants(classe1_id);
+    admin.Calculer_Moyennes_Etudiants(classe2_id);
         
     //---------------------------------------------------------------------------------------------------------------------------------//
 
