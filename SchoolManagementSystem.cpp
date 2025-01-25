@@ -50,7 +50,7 @@ public:
 
         ExecStatusType status = PQresultStatus(res);
         if (status == PGRES_COMMAND_OK || status == PGRES_TUPLES_OK) {
-            cout << "Requete executee avec succes." << endl; // Success message
+            cout << "Requete executee avec succes." << endl;
         }
         else {
             cerr << "Echec de l'execution de la requete : " << PQerrorMessage(conn) << endl;
@@ -122,7 +122,6 @@ public:
     }
 
     void voirResultatsEnfants() {
-        // Préparer la requête SQL
         string query = R"(
             SELECT 
                 et.nom AS enfant_nom, 
@@ -145,10 +144,8 @@ public:
                 et.nom, ex.titre, mat.nom;
         )";
 
-        // Exécuter la requête
         PGresult* res = DB.executeQuery(query);
 
-        // Vérifier les résultats
         if (PQresultStatus(res) != PGRES_TUPLES_OK) {
             cerr << "Erreur lors de l'execution de la requete : " << PQerrorMessage(DB.getConnection()) << endl;
             PQclear(res);
@@ -174,7 +171,6 @@ public:
             }
         }
 
-        // Libérer les ressources
         PQclear(res);
     }
 
@@ -281,7 +277,7 @@ public:
 
     // CREER UN EXAMEN POUR UNE CLASSE
     Examen Creer_Examen(const string& titre, const string& description, const Date& date_examen, int classe_id) {
-        // 1. Verify teacher is assigned to class
+        // 1. Verifier si l'enseignant est assignee a la classe
         string checkQuery = "SELECT * FROM enseignants_classes WHERE enseignant_id = "
             + to_string(GetUtilisateurId()) + " AND classe_id = " + to_string(classe_id) + ";";
 
@@ -293,21 +289,20 @@ public:
         }
         PQclear(checkRes);
 
-        // 2. Format date for PostgreSQL TIMESTAMP
+        // 2. date en format POSTGRESQL
         string dateStr = to_string(date_examen.annee) + "-"
             + (date_examen.mois < 10 ? "0" : "") + to_string(date_examen.mois) + "-"
             + (date_examen.jour < 10 ? "0" : "") + to_string(date_examen.jour)
             + " 00:00:00";
 
-        // 3. Insert into examens
+        // 3. Inserer dans examens
         const string insertExamQuery =
             "INSERT INTO examens (titre, description, date_examen, duree_minutes) "
             "VALUES ($1::text, $2::text, $3::timestamp, 60) RETURNING examen_id;";
 
-        // Store parameters in persistent strings
         string examen_id_str;
         try {
-            // First insert into examens
+            // Insere dans examens
             const char* examParams[3] = {
                 titre.c_str(),
                 description.c_str(),
@@ -330,12 +325,12 @@ public:
                 return Examen(0, "", "", date_examen, {}, {});
             }
 
-            // Get generated ID
+            // Recuperer l'id genere
             examen_id_str = PQgetvalue(examRes, 0, 0);
             int examen_id = stoi(examen_id_str);
             PQclear(examRes);
 
-            // 4. Insert into examens_classes
+            // 4. Inserer dans examens_classes
             string insertClasseQuery =
                 "INSERT INTO examens_classes (examen_id, classe_id) "
                 "VALUES ($1::integer, $2::integer);";
@@ -363,7 +358,7 @@ public:
             }
             PQclear(classeRes);
 
-            // 5. Insert into examens_matieres
+            // 5. Inserer dans examens_matieres
             string insertMatiereQuery =
                 "INSERT INTO examens_matieres (examen_id, matiere_id) "
                 "VALUES ($1::integer, $2::integer);";
@@ -391,13 +386,13 @@ public:
             }
             PQclear(matiereRes);
 
-            // 6. Return Examen object
+            // 6. Retrouner l'objet Examen
             vector<Classe> classes;
             classes.emplace_back(classe_id, "");
             vector<Matiere> matieres;
             matieres.push_back(Matiere_assignee);
 
-            // After successful exam creation
+            // Success
             string successMsg = "[SUCCESS] Examen créé: '" + titre + "'\n"
                 + "-> Matière: " + Matiere_assignee.GetNom() + "\n"
                 + "-> Classe: ID " + to_string(classe_id) + "\n"
@@ -741,10 +736,10 @@ public:
         PGresult* res = DB.executeQuery(query);
 
         if (PQntuples(res) > 0) {
-            int matiere_id = stoi(PQgetvalue(res, 0, 0)); // matiere_id
-            string nom_matiere = PQgetvalue(res, 0, 1); // nom
+            int matiere_id = stoi(PQgetvalue(res, 0, 0)); 
+            string nom_matiere = PQgetvalue(res, 0, 1); 
             PQclear(res);
-            return Matiere(matiere_id, nom_matiere); // Retourner un objet Matiere
+            return Matiere(matiere_id, nom_matiere); 
         }
         PQclear(res);
         throw runtime_error("Matiere non trouvee.");
@@ -755,9 +750,9 @@ public:
         PGresult* res = DB.executeQuery(query);
 
         if (PQntuples(res) > 0) {
-            string nom_matiere = PQgetvalue(res, 0, 1); // nom
+            string nom_matiere = PQgetvalue(res, 0, 1); 
             PQclear(res);
-            return Matiere(matiere_id, nom_matiere); // Retourner un objet Matiere avec l'ID et le nom
+            return Matiere(matiere_id, nom_matiere); 
         }
 
         PQclear(res);
@@ -769,15 +764,15 @@ public:
         PGresult* res = DB.executeQuery(query);
 
         if (PQntuples(res) > 0) {
-            int id = stoi(PQgetvalue(res, 0, 0)); // enseignant_id
-            string nom = PQgetvalue(res, 0, 1);   // nom
-            string email = PQgetvalue(res, 0, 2); // email
-            string mdp = PQgetvalue(res, 0, 3);   // mdp
-            int matiere_id = stoi(PQgetvalue(res, 0, 4)); // matiere_id
+            int id = stoi(PQgetvalue(res, 0, 0)); 
+            string nom = PQgetvalue(res, 0, 1);  
+            string email = PQgetvalue(res, 0, 2); 
+            string mdp = PQgetvalue(res, 0, 3);   
+            int matiere_id = stoi(PQgetvalue(res, 0, 4)); 
             PQclear(res);
 
             // Récupérer la matière associée à cet enseignant en utilisant l'ID de la matière
-            Matiere matiere = Recuperer_Matiere_par_ID(matiere_id); // Correction ici
+            Matiere matiere = Recuperer_Matiere_par_ID(matiere_id); 
 
             return Enseignant(id, nom, email, mdp, matiere, vector<Classe>(), DB);
         }
